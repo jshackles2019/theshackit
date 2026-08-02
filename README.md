@@ -25,7 +25,7 @@ MVP website and business portal for **The Shack - IT Solutions** built with Next
 ## Required accounts and secrets
 You will need to provide these manually:
 - `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY` for older setups)
 - `RESEND_API_KEY`
 - `RESEND_FROM_EMAIL`
 - `NEXT_PUBLIC_CALENDLY_BOOKING_URL`

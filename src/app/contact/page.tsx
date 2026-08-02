@@ -45,8 +45,8 @@ export default function ContactPage({
         </form>
         <article className="rounded-3xl bg-slate-950 p-8 text-white">
           <h2 className="text-xl font-semibold">Direct contact</h2>
-          <p className="mt-4 text-sm leading-6 text-slate-300">Email: COMING SOON</p>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Phone: COMING SOON</p>
+          <p className="mt-4 text-sm leading-6 text-slate-300">Email: Use the form for now.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">Phone: Shared after initial contact.</p>
           <p className="mt-6 text-sm leading-6 text-slate-300">Service area: Seguin, New Braunfels, San Marcos, and remote.</p>
         </article>
       </div>

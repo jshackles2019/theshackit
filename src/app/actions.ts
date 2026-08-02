@@ -177,15 +177,29 @@ export async function signUpAction(formData: FormData) {
   }
 
   if (!canUseSupabase()) {
-    jump("/auth/sign-up", "error", "Connect Supabase env vars to enable account creation.");
+    const env = getEnv();
+    const missingVars = [];
+    if (!env.NEXT_PUBLIC_SUPABASE_URL) missingVars.push("NEXT_PUBLIC_SUPABASE_URL");
+    if (!env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && !env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      missingVars.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    }
+    const errorMsg = missingVars.length > 0 
+      ? `Missing env vars: ${missingVars.join(", ")}`
+      : "Supabase config invalid";
+    jump("/auth/sign-up", "error", errorMsg);
   }
 
+  const env = getEnv();
   const supabase = await createSupabaseServerClient();
+  const confirmationRedirect = env.NEXT_PUBLIC_SITE_URL
+    ? `${env.NEXT_PUBLIC_SITE_URL}/auth/sign-in`
+    : undefined;
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.fullName },
+      emailRedirectTo: confirmationRedirect,
     },
   });
 
@@ -194,7 +208,12 @@ export async function signUpAction(formData: FormData) {
   }
 
   await upsertProfile(supabase, data.user.id, parsed.data.email, parsed.data.fullName);
-  jump("/auth/sign-in", "success", "Account created. Sign in to continue.");
+
+  if (data.session) {
+    jump("/dashboard", "success", "Account created and signed in.");
+  }
+
+  jump("/auth/sign-in", "success", "Account created. Check your email to confirm the account before signing in.");
 }
 
 export async function signInAction(formData: FormData) {
