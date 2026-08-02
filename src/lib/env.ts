@@ -37,7 +37,14 @@ export function getSupabasePublishableKey() {
 
 export function hasSupabaseConfig() {
   const env = getEnv();
-  return Boolean(env.NEXT_PUBLIC_SUPABASE_URL && resolveSupabaseKey(env));
+  const isConfigured = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && resolveSupabaseKey(env));
+  console.log("[ENV DEBUG]", {
+    NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "MISSING",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ? "SET" : "MISSING",
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "SET" : "MISSING",
+    isConfigured,
+  });
+  return isConfigured;
 }
 
 export function hasEmailConfig() {
