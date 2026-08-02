@@ -16,11 +16,31 @@ export default function HomePage() {
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">{hero.subheadline}</p>
             <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">{company.tone}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/book" className="rounded-full bg-sky-500 px-6 py-3 text-center font-semibold text-white transition hover:bg-sky-400">
+              <Link href="/book" className="w-full rounded-full bg-sky-500 px-6 py-4 text-center text-base font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-400 sm:w-auto sm:py-3 sm:text-sm">
                 Book a consultation
               </Link>
-              <Link href="/services" className="rounded-full border border-white/20 px-6 py-3 text-center font-semibold text-white transition hover:bg-white/10">
+              <Link href="/services" className="w-full rounded-full border border-white/20 px-6 py-4 text-center text-base font-semibold text-white transition hover:bg-white/10 sm:w-auto sm:py-3 sm:text-sm">
                 Explore services
+              </Link>
+            </div>
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Link href="/auth/sign-up" className="w-full rounded-full bg-white px-6 py-4 text-center text-base font-semibold text-slate-950 shadow-lg shadow-slate-950/20 transition hover:bg-slate-100 sm:w-auto sm:py-3 sm:text-sm">
+                Create account
+              </Link>
+              <Link href="/auth/sign-in" className="w-full rounded-full border border-white/20 px-6 py-4 text-center text-base font-semibold text-white transition hover:bg-white/10 sm:w-auto sm:py-3 sm:text-sm">
+                Sign in
+              </Link>
+            </div>
+            <div className="mt-5 grid gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 sm:hidden">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-200">Client access</p>
+              <p className="text-sm leading-6 text-slate-300">
+                Sign up to access the client portal and secure follow-up workflows.
+              </p>
+              <Link href="/auth/sign-up" className="rounded-full bg-sky-500 px-6 py-4 text-center text-base font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-400">
+                Create account
+              </Link>
+              <Link href="/auth/sign-in" className="rounded-full border border-white/20 px-6 py-4 text-center text-base font-semibold text-white transition hover:bg-white/10">
+                Sign in
               </Link>
             </div>
           </div>
@@ -32,6 +52,20 @@ export default function HomePage() {
               <li>• Client-safe estimate visibility</li>
               <li>• Scalable Supabase + RLS architecture</li>
             </ul>
+            <div className="mt-8 rounded-2xl border border-white/10 bg-slate-950/60 p-5">
+              <p className="text-sm font-semibold text-white">Client access</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                Create an account to access the client portal, estimate updates, and secure follow-up workflows.
+              </p>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <Link href="/auth/sign-up" className="w-full rounded-full bg-sky-500 px-5 py-4 text-center text-base font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-400 sm:w-auto sm:py-2.5 sm:text-sm">
+                  Sign up
+                </Link>
+                <Link href="/auth/sign-in" className="w-full rounded-full border border-white/15 px-5 py-4 text-center text-base font-semibold text-white transition hover:bg-white/10 sm:w-auto sm:py-2.5 sm:text-sm">
+                  Sign in
+                </Link>
+              </div>
+            </div>
           </div>
         </Container>
       </section>

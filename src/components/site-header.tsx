@@ -25,12 +25,41 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
           ))}
         </nav>
 
-        <Link
-          href="/book"
-          className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-100"
-        >
-          Book a consult
-        </Link>
+        <div className="hidden items-center gap-3 md:flex">
+          <Link
+            href="/auth/sign-in"
+            className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/auth/sign-up"
+            className="rounded-full border border-sky-400/40 bg-sky-500/15 px-4 py-2 text-sm font-semibold text-sky-100 transition hover:bg-sky-500/25"
+          >
+            Create account
+          </Link>
+          <Link
+            href="/book"
+            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-100"
+          >
+            Book a consult
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-2 md:hidden">
+          <Link
+            href="/auth/sign-up"
+            className="rounded-full bg-sky-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-400"
+          >
+            Join
+          </Link>
+          <Link
+            href="/book"
+            className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-100"
+          >
+            Book
+          </Link>
+        </div>
       </Container>
     </header>
   );

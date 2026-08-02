@@ -31,7 +31,7 @@ export default function ServicesPage() {
           </ul>
         </article>
         <article className="rounded-3xl bg-sky-50 p-8">
-          <h2 className="text-2xl font-semibold text-slate-950">Pricing model</h2>
+          <h2 className="text-2xl font-semibold text-slate-950">How pricing works</h2>
           <ul className="mt-5 space-y-3 text-sm leading-6 text-slate-700">
             {pricingApproach.map((item) => (
               <li key={item.label}>

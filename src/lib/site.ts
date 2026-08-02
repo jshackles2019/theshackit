@@ -81,8 +81,6 @@ export const navItems = [
 export const pricingApproach = [
   { label: "Services", value: "Fixed / Hourly / Tiered / Mixed / Included in Contract" },
   { label: "Hardware", value: "Variable / Quote-Based" },
-  { label: "Internal cost", value: "Stored for admin use only" },
-  { label: "Markup", value: "Stored and calculated for admin use only" },
   { label: "Client visibility", value: "Sell price only" },
 ];
 
