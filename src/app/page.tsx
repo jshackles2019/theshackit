@@ -50,7 +50,6 @@ export default function HomePage() {
               <li>• Consultation-led IT support</li>
               <li>• Admin-managed CRM and client portal</li>
               <li>• Client-safe estimate visibility</li>
-              <li>• Scalable Supabase + RLS architecture</li>
             </ul>
             <div className="mt-8 rounded-2xl border border-white/10 bg-slate-950/60 p-5">
               <p className="text-sm font-semibold text-white">Client access</p>
