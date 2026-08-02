@@ -20,6 +20,12 @@ function resolveSupabaseKey(env: AppEnv) {
 }
 
 export function getEnv(): AppEnv {
+  console.log("[ENV RAW] process.env values:", {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? `${process.env.NEXT_PUBLIC_SUPABASE_URL.substring(0, 30)}...` : "undefined",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ? `${process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.substring(0, 20)}...` : "undefined",
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "SET" : "undefined",
+    RESEND_API_KEY: process.env.RESEND_API_KEY ? "SET" : "undefined",
+  });
   return serverEnvSchema.parse({
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
     NEXT_PUBLIC_CALENDLY_BOOKING_URL: process.env.NEXT_PUBLIC_CALENDLY_BOOKING_URL,
@@ -36,15 +42,20 @@ export function getSupabasePublishableKey() {
 }
 
 export function hasSupabaseConfig() {
-  const env = getEnv();
-  const isConfigured = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && resolveSupabaseKey(env));
-  console.log("[ENV DEBUG]", {
-    NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "MISSING",
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ? "SET" : "MISSING",
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "SET" : "MISSING",
-    isConfigured,
-  });
-  return isConfigured;
+  try {
+    const env = getEnv();
+    const isConfigured = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && resolveSupabaseKey(env));
+    console.log("[ENV DEBUG] hasSupabaseConfig check:", {
+      NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL ? `"${env.NEXT_PUBLIC_SUPABASE_URL.substring(0, 20)}..."` : "MISSING",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ? `"${env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.substring(0, 20)}..."` : "MISSING",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "SET" : "MISSING",
+      isConfigured,
+    });
+    return isConfigured;
+  } catch (error) {
+    console.error("[ENV ERROR] hasSupabaseConfig failed:", error instanceof Error ? error.message : error);
+    return false;
+  }
 }
 
 export function hasEmailConfig() {
