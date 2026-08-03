@@ -1,4 +1,3 @@
-import { cache } from "react";
 import { createSupabaseServerClient, canUseSupabase } from "@/lib/supabase/server";
 import { dashboardRoles, type DashboardRole } from "@/lib/site";
 
@@ -12,7 +11,7 @@ export type SessionProfile = {
   title: string | null;
 };
 
-export const getCurrentAuth = cache(async () => {
+export async function getCurrentAuth() {
   if (!canUseSupabase()) {
     return { user: null, profile: null };
   }
@@ -43,7 +42,7 @@ export const getCurrentAuth = cache(async () => {
         title: null,
       } satisfies SessionProfile),
   };
-});
+}
 
 export async function requireRole(allowedRoles: DashboardRole[]) {
   const auth = await getCurrentAuth();
