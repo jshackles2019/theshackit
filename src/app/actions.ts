@@ -113,7 +113,6 @@ async function upsertProfile(
     id: userId,
     email: email ?? "",
     full_name: fullName ?? null,
-    role: "user",
     updated_at: new Date().toISOString(),
   });
 }
