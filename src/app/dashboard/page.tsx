@@ -16,6 +16,7 @@ export default async function DashboardPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">Current role</p>
           <p className="mt-3 text-2xl font-semibold">{auth.profile?.role ?? "Preview"}</p>
           <p className="mt-2 text-sm text-slate-600">{auth.user?.email ?? "Supabase not connected yet."}</p>
+          {auth.user?.id ? <p className="mt-1 text-xs text-slate-500">User ID: {auth.user.id}</p> : null}
         </article>
         <article className="rounded-3xl bg-white p-6 text-slate-950 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">Contacts</p>
