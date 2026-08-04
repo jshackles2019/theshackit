@@ -64,6 +64,7 @@ export type AdminContact = {
   fullName: string;
   email: string;
   companyName: string | null;
+  source: string | null;
   pipelineStage: string;
   status: string;
   notes: string | null;
@@ -386,7 +387,7 @@ export async function getAdminCrmContacts(): Promise<AdminContact[]> {
     const supabase = await createSupabaseServerClient();
     const { data: contactsData, error: contactsError } = await supabase
       .from("crm_contacts")
-      .select("id, full_name, email, company_name, pipeline_stage, status, notes")
+      .select("id, full_name, email, company_name, source, pipeline_stage, status, notes")
       .order("updated_at", { ascending: false });
 
     if (contactsError || !contactsData) {
@@ -439,6 +440,7 @@ export async function getAdminCrmContacts(): Promise<AdminContact[]> {
       fullName: contact.full_name,
       email: contact.email,
       companyName: contact.company_name,
+      source: contact.source,
       pipelineStage: contact.pipeline_stage,
       status: contact.status,
       notes: contact.notes,

@@ -4,6 +4,23 @@ import { StatusBanner } from "@/components/status-banner";
 import { getAdminCrmContacts, getAdminCrmTasks } from "@/lib/content";
 import { crmStages } from "@/lib/site";
 
+function contactSourceLabel(source: string | null) {
+  switch (source) {
+    case "auth_signup":
+      return "Signup";
+    case "auth_signup_backfill":
+      return "Signup import";
+    case "contact_form":
+      return "Lead form";
+    case "booking_page":
+      return "Booking";
+    case "admin":
+      return "Manual";
+    default:
+      return source ?? "Unknown";
+  }
+}
+
 export default async function AdminCrmPage({
   searchParams,
 }: {
@@ -244,9 +261,14 @@ export default async function AdminCrmPage({
                   {contact.agreement.billingFrequency ?? "No billing frequency"} • {contact.agreement.includedServices ?? "No service agreement details"}
                 </p>
               ) : null}
-              <p className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-500">
-                {contact.activityCount} activity item(s) • {contact.openTaskCount} open task(s)
-              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">
+                  {contactSourceLabel(contact.source)}
+                </span>
+                <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                  {contact.activityCount} activity item(s) • {contact.openTaskCount} open task(s)
+                </span>
+              </div>
             </div>
           )) : <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">No CRM contacts saved yet.</div>}
         </div>
