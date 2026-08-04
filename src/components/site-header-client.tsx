@@ -40,9 +40,9 @@ export function SiteHeaderClient({ isAuthenticated, isAdmin, isClient }: SiteHea
                   Admin
                 </Link>
               )}
-              {isClient && (
+              {(isAdmin || isClient) && (
                 <Link
-                  href="/dashboard/client"
+                  href={isAdmin ? "/dashboard/admin/clients" : "/dashboard/client"}
                   className="text-sm font-semibold text-sky-200 transition hover:text-sky-100"
                 >
                   Client Portal
