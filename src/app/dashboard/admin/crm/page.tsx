@@ -1,4 +1,4 @@
-import { addCrmActivityAction, createCrmTaskAction, saveContactAction, updateCrmTaskAction } from "@/app/actions";
+import { addCrmActivityAction, createCrmTaskAction, deleteContactAction, saveContactAction, updateCrmTaskAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StatusBanner } from "@/components/status-banner";
 import { getAdminCrmContacts, getAdminCrmTasks } from "@/lib/content";
@@ -24,9 +24,10 @@ function contactSourceLabel(source: string | null) {
 export default async function AdminCrmPage({
   searchParams,
 }: {
-  searchParams?: { success?: string; error?: string };
+  searchParams?: { success?: string; error?: string; editContactId?: string };
 }) {
   const [contacts, tasks] = await Promise.all([getAdminCrmContacts(), getAdminCrmTasks()]);
+  const editingContact = contacts.find((contact) => contact.id === searchParams?.editContactId) ?? null;
 
   return (
     <DashboardShell
@@ -36,58 +37,75 @@ export default async function AdminCrmPage({
       <StatusBanner success={searchParams?.success} error={searchParams?.error} />
       <div className="grid gap-6 lg:grid-cols-2">
         <form action={saveContactAction} className="rounded-3xl bg-white p-6 text-slate-950 shadow-sm">
-          <h2 className="text-lg font-semibold">Create or update a contact</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">{editingContact ? "Edit contact" : "Create or update a contact"}</h2>
+            {editingContact ? (
+              <a href="/dashboard/admin/crm" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
+                Cancel edit
+              </a>
+            ) : null}
+          </div>
           <input type="hidden" name="redirectTo" value="/dashboard/admin/crm" />
+          {editingContact ? <input type="hidden" name="contactId" value={editingContact.id} /> : null}
           <div className="mt-4 grid gap-4">
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Full name
-              <input name="fullName" required className="rounded-2xl border border-slate-300 px-4 py-3" />
+              <input name="fullName" required defaultValue={editingContact?.fullName ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Email
-              <input name="email" type="email" required className="rounded-2xl border border-slate-300 px-4 py-3" />
+              <input name="email" type="email" required defaultValue={editingContact?.email ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Company
-              <input name="companyName" className="rounded-2xl border border-slate-300 px-4 py-3" />
+              <input name="companyName" defaultValue={editingContact?.companyName ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Pipeline stage
-              <select name="pipelineStage" className="rounded-2xl border border-slate-300 px-4 py-3">
+              <select name="pipelineStage" defaultValue={editingContact?.pipelineStage ?? "Lead"} className="rounded-2xl border border-slate-300 px-4 py-3">
                 {crmStages.map((stage) => (
                   <option key={stage}>{stage}</option>
                 ))}
               </select>
             </label>
             <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Status
+              <select name="status" defaultValue={editingContact?.status ?? "lead"} className="rounded-2xl border border-slate-300 px-4 py-3">
+                <option value="lead">Lead</option>
+                <option value="prospect">Prospect</option>
+                <option value="client">Client</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
               Notes
-              <textarea name="notes" rows={4} className="rounded-2xl border border-slate-300 px-4 py-3" />
+              <textarea name="notes" rows={4} defaultValue={editingContact?.notes ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 Billing frequency
-                <input name="billingFrequency" className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Monthly" />
+                <input name="billingFrequency" defaultValue={editingContact?.agreement?.billingFrequency ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Monthly" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 Monthly amount
-                <input name="monthlyAmount" type="number" step="0.01" className="rounded-2xl border border-slate-300 px-4 py-3" />
+                <input name="monthlyAmount" type="number" step="0.01" defaultValue={editingContact?.agreement?.monthlyAmount ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 SLA start date
-                <input name="slaStartDate" type="date" className="rounded-2xl border border-slate-300 px-4 py-3" />
+                <input name="slaStartDate" type="date" defaultValue={""} className="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 SLA end date
-                <input name="slaEndDate" type="date" className="rounded-2xl border border-slate-300 px-4 py-3" />
+                <input name="slaEndDate" type="date" defaultValue={""} className="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
             </div>
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Included services
-              <textarea name="includedServices" rows={3} className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Help desk, patching, workstation support" />
+              <textarea name="includedServices" rows={3} defaultValue={editingContact?.agreement?.includedServices ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Help desk, patching, workstation support" />
             </label>
-            <button className="rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">Save contact</button>
+            <button className="rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">{editingContact ? "Update contact" : "Save contact"}</button>
           </div>
         </form>
 
@@ -268,6 +286,21 @@ export default async function AdminCrmPage({
                 <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
                   {contact.activityCount} activity item(s) • {contact.openTaskCount} open task(s)
                 </span>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a
+                  href={`/dashboard/admin/crm?editContactId=${contact.id}`}
+                  className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  Edit
+                </a>
+                <form action={deleteContactAction} className="inline-flex">
+                  <input type="hidden" name="redirectTo" value="/dashboard/admin/crm" />
+                  <input type="hidden" name="contactId" value={contact.id} />
+                  <button type="submit" className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700">
+                    Delete
+                  </button>
+                </form>
               </div>
             </div>
           )) : <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">No CRM contacts saved yet.</div>}

@@ -49,6 +49,7 @@ const hardwareSchema = z.object({
 });
 
 const contactSchema = z.object({
+  contactId: z.string().trim().min(1).optional(),
   fullName: z.string().trim().min(2),
   email: z.string().trim().email(),
   companyName: z.string().trim().optional(),
@@ -627,6 +628,7 @@ export async function saveHardwareAction(formData: FormData) {
 export async function saveContactAction(formData: FormData) {
   const redirectTo = redirectTarget(formData, "/dashboard/admin/crm");
   const parsed = contactSchema.safeParse({
+    contactId: formData.get("contactId"),
     fullName: formData.get("fullName"),
     email: formData.get("email"),
     companyName: formData.get("companyName"),
@@ -646,10 +648,33 @@ export async function saveContactAction(formData: FormData) {
   }
 
   const supabase = await requireAdminOrJump(redirectTo);
-  const { data: contact, error } = await supabase
-    .from("crm_contacts")
-    .upsert(
-      {
+  let contactId = parsed.data.contactId;
+  let contact;
+
+  if (contactId) {
+    const { data, error } = await supabase
+      .from("crm_contacts")
+      .update({
+        full_name: parsed.data.fullName,
+        email: parsed.data.email,
+        company_name: parsed.data.companyName ?? null,
+        pipeline_stage: parsed.data.pipelineStage ?? "Lead",
+        status: parsed.data.status ?? "lead",
+        notes: parsed.data.notes ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", contactId)
+      .select("id")
+      .single();
+
+    contact = data;
+    if (error || !contact) {
+      jump(redirectTo, "error", error?.message ?? "Unable to update contact.");
+    }
+  } else {
+    const { data, error } = await supabase
+      .from("crm_contacts")
+      .insert({
         full_name: parsed.data.fullName,
         email: parsed.data.email,
         company_name: parsed.data.companyName ?? null,
@@ -658,14 +683,14 @@ export async function saveContactAction(formData: FormData) {
         source: "admin",
         notes: parsed.data.notes ?? null,
         updated_at: new Date().toISOString(),
-      },
-      { onConflict: "email" },
-    )
-    .select("id")
-    .single();
+      })
+      .select("id")
+      .single();
 
-  if (error || !contact) {
-    jump(redirectTo, "error", error?.message ?? "Unable to save contact.");
+    contact = data;
+    if (error || !contact) {
+      jump(redirectTo, "error", error?.message ?? "Unable to save contact.");
+    }
   }
 
   await supabase.from("service_agreements").upsert(
@@ -681,7 +706,25 @@ export async function saveContactAction(formData: FormData) {
     { onConflict: "contact_id" },
   );
 
-  jump(redirectTo, "success", "Contact saved.");
+  jump(redirectTo, "success", parsed.data.contactId ? "Contact updated." : "Contact saved.");
+}
+
+export async function deleteContactAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/crm");
+  const contactId = formData.get("contactId")?.toString().trim();
+
+  if (!contactId) {
+    jump(redirectTo, "error", "No contact selected for deletion.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const { error } = await supabase.from("crm_contacts").delete().eq("id", contactId);
+
+  if (error) {
+    jump(redirectTo, "error", error.message);
+  }
+
+  jump(redirectTo, "success", "Contact deleted.");
 }
 
 export async function addCrmActivityAction(formData: FormData) {
