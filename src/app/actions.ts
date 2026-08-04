@@ -78,8 +78,27 @@ const estimateSchema = z.object({
   redirectTo: z.string().optional(),
 });
 
+const estimateUpdateSchema = z.object({
+  estimateId: z.string().trim().min(1),
+  title: z.string().trim().min(2),
+  notes: z.string().trim().optional(),
+  status: z.string().trim().optional(),
+  visibleToClient: z.string().optional(),
+  redirectTo: z.string().optional(),
+});
+
 const estimateLineItemSchema = z.object({
   estimateId: z.string().trim().min(1),
+  description: z.string().trim().min(2),
+  quantity: z.coerce.number().min(1),
+  unitSellPrice: z.coerce.number().optional(),
+  unitCostPrice: z.coerce.number().optional(),
+  markupPct: z.coerce.number().optional(),
+  redirectTo: z.string().optional(),
+});
+
+const estimateLineItemUpdateSchema = z.object({
+  lineItemId: z.string().trim().min(1),
   description: z.string().trim().min(2),
   quantity: z.coerce.number().min(1),
   unitSellPrice: z.coerce.number().optional(),
@@ -573,6 +592,79 @@ export async function addEstimateLineItemAction(formData: FormData) {
 
   await recalculateEstimateTotals(supabase, parsed.data.estimateId);
   jump(redirectTo, "success", "Line item added.");
+}
+
+export async function updateEstimateAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/estimates");
+  const parsed = estimateUpdateSchema.safeParse({
+    estimateId: formData.get("estimateId"),
+    title: formData.get("title"),
+    notes: formData.get("notes"),
+    status: formData.get("status"),
+    visibleToClient: formData.get("visibleToClient")?.toString(),
+    redirectTo,
+  });
+
+  if (!parsed.success) {
+    jump(redirectTo, "error", "Please complete the estimate update form.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const { error } = await supabase
+    .from("estimates")
+    .update({
+      title: parsed.data.title,
+      notes: parsed.data.notes ?? null,
+      status: parsed.data.status ?? "draft",
+      visible_to_client: parsed.data.visibleToClient === "on",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.estimateId);
+
+  if (error) {
+    jump(redirectTo, "error", error.message);
+  }
+
+  jump(redirectTo, "success", "Estimate updated.");
+}
+
+export async function updateEstimateLineItemAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/estimates");
+  const parsed = estimateLineItemUpdateSchema.safeParse({
+    lineItemId: formData.get("lineItemId"),
+    description: formData.get("description"),
+    quantity: formData.get("quantity"),
+    unitSellPrice: formData.get("unitSellPrice"),
+    unitCostPrice: formData.get("unitCostPrice"),
+    markupPct: formData.get("markupPct"),
+    redirectTo,
+  });
+
+  if (!parsed.success) {
+    jump(redirectTo, "error", "Please complete the line item update form.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const { data: lineItem, error } = await supabase
+    .from("estimate_line_items")
+    .update({
+      description: parsed.data.description,
+      quantity: parsed.data.quantity,
+      unit_sell_price: parsed.data.unitSellPrice ?? 0,
+      unit_cost_price: parsed.data.unitCostPrice ?? 0,
+      markup_pct: parsed.data.markupPct ?? 0,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.lineItemId)
+    .select("estimate_id")
+    .maybeSingle();
+
+  if (error || !lineItem) {
+    jump(redirectTo, "error", error?.message ?? "Unable to update line item.");
+  }
+
+  await recalculateEstimateTotals(supabase, lineItem.estimate_id);
+  jump(redirectTo, "success", "Line item updated.");
 }
 
 export async function finalizeEstimateAction(formData: FormData) {

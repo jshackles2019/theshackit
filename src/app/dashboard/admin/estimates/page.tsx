@@ -1,4 +1,4 @@
-import { addEstimateLineItemAction, createEstimateAction, finalizeEstimateAction } from "@/app/actions";
+import { addEstimateLineItemAction, createEstimateAction, finalizeEstimateAction, updateEstimateAction, updateEstimateLineItemAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StatusBanner } from "@/components/status-banner";
 import { getAdminEstimates } from "@/lib/content";
@@ -74,6 +74,69 @@ export default async function AdminEstimatesPage({
           </div>
         </form>
       </div>
+
+      <form action={updateEstimateAction} className="mt-6 rounded-3xl bg-slate-50 p-6">
+        <input type="hidden" name="redirectTo" value="/dashboard/admin/estimates" />
+        <h2 className="text-lg font-semibold">Adjust an estimate</h2>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            Estimate ID
+            <input name="estimateId" required className="rounded-2xl border border-slate-300 px-4 py-3" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            Title
+            <input name="title" required className="rounded-2xl border border-slate-300 px-4 py-3" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            Status
+            <select name="status" defaultValue="draft" className="rounded-2xl border border-slate-300 px-4 py-3">
+              <option value="draft">Draft</option>
+              <option value="finalized">Finalized</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700">
+            <input name="visibleToClient" type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+            Visible to client
+          </label>
+        </div>
+        <label className="mt-4 grid gap-2 text-sm font-medium text-slate-700">
+          Notes
+          <textarea name="notes" rows={4} className="rounded-2xl border border-slate-300 px-4 py-3" />
+        </label>
+        <button className="mt-4 rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">Save estimate changes</button>
+      </form>
+
+      <form action={updateEstimateLineItemAction} className="mt-6 rounded-3xl bg-sky-50 p-6">
+        <input type="hidden" name="redirectTo" value="/dashboard/admin/estimates" />
+        <h2 className="text-lg font-semibold">Adjust a line item</h2>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            Line item ID
+            <input name="lineItemId" required className="rounded-2xl border border-slate-300 px-4 py-3" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            Description
+            <input name="description" required className="rounded-2xl border border-slate-300 px-4 py-3" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            Quantity
+            <input name="quantity" type="number" step="1" min="1" defaultValue="1" className="rounded-2xl border border-slate-300 px-4 py-3" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            Sell price
+            <input name="unitSellPrice" type="number" step="0.01" className="rounded-2xl border border-slate-300 px-4 py-3" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            Internal cost
+            <input name="unitCostPrice" type="number" step="0.01" className="rounded-2xl border border-slate-300 px-4 py-3" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            Markup %
+            <input name="markupPct" type="number" step="0.01" className="rounded-2xl border border-slate-300 px-4 py-3" />
+          </label>
+        </div>
+        <button className="mt-4 rounded-full bg-sky-500 px-5 py-3 font-semibold text-white">Update line item</button>
+      </form>
 
       <article className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold">Estimate preview</h2>
