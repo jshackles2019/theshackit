@@ -93,6 +93,25 @@ export default async function AdminEstimatesPage({
               <div className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-500">
                 {estimate.status} • {estimate.visibleToClient ? "Visible to client" : "Internal draft"}
               </div>
+              {estimate.lineItems.length > 0 ? (
+               <div className="mt-4 border-t border-slate-200 pt-4">
+                 <p className="text-sm font-semibold text-slate-900">Line items</p>
+                 <div className="mt-3 space-y-2">
+                   {estimate.lineItems.map((item) => (
+                     <div key={item.id} className="flex flex-wrap items-start justify-between gap-3 rounded-2xl bg-white/80 p-3">
+                       <div>
+                         <p className="font-medium text-slate-900">{item.description}</p>
+                         <p className="text-sm text-slate-600">Qty {item.quantity} • Sell {money(item.unitSellPrice)} each • Cost {money(item.unitCostPrice)} • Markup {item.markupPct}%</p>
+                       </div>
+                       <div className="text-sm text-slate-600">
+                         <div>Sell {money(item.lineTotalSell)}</div>
+                         <div>Cost {money(item.lineTotalCost)}</div>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+              ) : <div className="mt-4 text-sm text-slate-500">No line items have been added yet.</div>}
             </div>
           )) : <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">No estimates saved yet.</div>}
         </div>

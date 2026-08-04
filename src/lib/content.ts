@@ -68,6 +68,17 @@ export type AdminContact = {
   activityCount: number;
 };
 
+export type EstimateLineItem = {
+  id: string;
+  description: string;
+  quantity: number;
+  unitSellPrice: number;
+  unitCostPrice: number;
+  markupPct: number;
+  lineTotalSell: number;
+  lineTotalCost: number;
+};
+
 export type AdminEstimate = {
   id: string;
   estimateNumber: string;
@@ -82,6 +93,7 @@ export type AdminEstimate = {
   totalCost: number;
   finalizedAt: string | null;
   createdAt: string;
+  lineItems: EstimateLineItem[];
 };
 
 export type ClientEstimate = {
@@ -92,6 +104,7 @@ export type ClientEstimate = {
   status: string;
   totalSell: number;
   finalizedAt: string | null;
+  lineItems: EstimateLineItem[];
 };
 
 function formatCurrency(value: number | null) {
@@ -161,6 +174,47 @@ async function getActiveHardware() {
   } catch {
     return [] as Array<{ name: string; description: string | null; sell_price: number | null }>;
   }
+}
+
+async function getEstimateLineItems(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  estimateIds: string[],
+): Promise<Map<string, EstimateLineItem[]>> {
+  if (estimateIds.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabase
+    .from("estimate_line_items")
+    .select("id, estimate_id, description, quantity, unit_sell_price, unit_cost_price, markup_pct")
+    .in("estimate_id", estimateIds)
+    .order("created_at", { ascending: true });
+
+  if (error || !data) {
+    return new Map();
+  }
+
+  const lineItemsByEstimate = new Map<string, EstimateLineItem[]>();
+  for (const item of data) {
+    const estimateId = item.estimate_id;
+    const currentItems = lineItemsByEstimate.get(estimateId) ?? [];
+    const quantity = Number(item.quantity ?? 0);
+    const sellPrice = Number(item.unit_sell_price ?? 0);
+    const costPrice = Number(item.unit_cost_price ?? 0);
+    currentItems.push({
+      id: item.id,
+      description: item.description,
+      quantity,
+      unitSellPrice: sellPrice,
+      unitCostPrice: costPrice,
+      markupPct: Number(item.markup_pct ?? 0),
+      lineTotalSell: quantity * sellPrice,
+      lineTotalCost: quantity * costPrice,
+    });
+    lineItemsByEstimate.set(estimateId, currentItems);
+  }
+
+  return lineItemsByEstimate;
 }
 
 export async function getPublicSiteContent(): Promise<PublicSiteContent> {
@@ -377,6 +431,8 @@ export async function getAdminEstimates(): Promise<AdminEstimate[]> {
       }
     }
 
+    const lineItemsByEstimate = await getEstimateLineItems(supabase, estimateData.map((estimate) => estimate.id));
+
     return estimateData.map((estimate) => ({
       id: estimate.id,
       estimateNumber: estimate.estimate_number,
@@ -391,6 +447,7 @@ export async function getAdminEstimates(): Promise<AdminEstimate[]> {
       totalCost: Number(estimate.total_cost ?? 0),
       finalizedAt: estimate.finalized_at,
       createdAt: estimate.created_at,
+      lineItems: lineItemsByEstimate.get(estimate.id) ?? [],
     }));
   } catch {
     return [];
@@ -432,6 +489,8 @@ export async function getClientEstimates(): Promise<ClientEstimate[]> {
       }
     }
 
+    const lineItemsByEstimate = await getEstimateLineItems(supabase, estimateData.map((estimate) => estimate.id));
+
     return estimateData.map((estimate) => ({
       id: estimate.id,
       estimateNumber: estimate.estimate_number,
@@ -440,6 +499,7 @@ export async function getClientEstimates(): Promise<ClientEstimate[]> {
       status: estimate.status,
       totalSell: Number(estimate.total_sell ?? 0),
       finalizedAt: estimate.finalized_at,
+      lineItems: lineItemsByEstimate.get(estimate.id) ?? [],
     }));
   } catch {
     return [];

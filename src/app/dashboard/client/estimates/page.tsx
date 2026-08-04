@@ -42,6 +42,22 @@ export default async function ClientEstimatesPage({
                 </div>
                 <div className="text-sm font-medium text-slate-950">{money(estimate.totalSell)}</div>
               </div>
+              {estimate.lineItems.length > 0 ? (
+               <div className="mt-4 border-t border-slate-200 pt-4">
+                 <p className="text-sm font-semibold text-slate-900">Estimate breakdown</p>
+                 <div className="mt-3 space-y-2">
+                   {estimate.lineItems.map((item) => (
+                     <div key={item.id} className="flex flex-wrap items-start justify-between gap-3 rounded-2xl bg-slate-50 p-3">
+                       <div>
+                         <p className="font-medium text-slate-900">{item.description}</p>
+                         <p className="text-sm text-slate-600">Qty {item.quantity} • {money(item.unitSellPrice)} each</p>
+                       </div>
+                       <div className="text-sm font-medium text-slate-900">{money(item.lineTotalSell)}</div>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+              ) : <div className="mt-4 text-sm text-slate-500">No line items have been added to this estimate yet.</div>}
             </div>
           )) : <div className="rounded-2xl bg-white p-4 text-sm text-slate-600">No finalized estimates are visible to your account yet.</div>}
         </div>
