@@ -3,13 +3,15 @@ import { requestConsultationAction } from "@/app/actions";
 import { Container } from "@/components/container";
 import { StatusBanner } from "@/components/status-banner";
 import { SectionHeading } from "@/components/section-heading";
-import { company } from "@/lib/site";
+import { getPublicContactContent } from "@/lib/content";
 
-export default function BookPage({
+export default async function BookPage({
   searchParams,
 }: {
   searchParams?: { success?: string; error?: string };
 }) {
+  const contact = await getPublicContactContent();
+
   return (
     <Container className="py-16">
       <SectionHeading
@@ -51,18 +53,30 @@ export default function BookPage({
               Sign in
             </Link>
           </div>
+          <div className="mt-8 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+            <p className="font-semibold text-slate-900">Service area</p>
+            <p className="mt-2">{contact.serviceArea.join(", ")}</p>
+          </div>
         </article>
 
         <article className="rounded-3xl bg-sky-50 p-8">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-800">Calendly</p>
           <h2 className="mt-3 text-2xl font-semibold text-slate-950">Schedule with The Shack</h2>
           <p className="mt-4 text-sm leading-6 text-slate-700">
-            The booking flow is wired to the {company.bookingUrl} link for your MVP launch.
+            The booking flow is wired to the configured scheduling link for your MVP launch.
           </p>
+          <Link
+            href={contact.bookingUrl}
+            className="mt-6 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open booking link
+          </Link>
           <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <iframe
               title="Calendly booking"
-              src={company.bookingUrl}
+              src={contact.bookingUrl}
               className="min-h-[720px] w-full"
               loading="lazy"
             />

@@ -101,6 +101,21 @@ create table if not exists public.crm_activities (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.crm_tasks (
+  id uuid primary key default gen_random_uuid(),
+  contact_id uuid references public.crm_contacts(id) on delete cascade,
+  title text not null,
+  notes text,
+  status text not null default 'open',
+  due_date date,
+  reminder_at timestamptz,
+  assigned_to text,
+  created_by_user_id uuid references auth.users(id) on delete set null,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.estimates (
   id uuid primary key default gen_random_uuid(),
   estimate_number text not null unique,
@@ -196,6 +211,10 @@ drop trigger if exists set_crm_activities_updated_at on public.crm_activities;
 create trigger set_crm_activities_updated_at before update on public.crm_activities
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_crm_tasks_updated_at on public.crm_tasks;
+create trigger set_crm_tasks_updated_at before update on public.crm_tasks
+for each row execute function public.set_updated_at();
+
 drop trigger if exists set_estimates_updated_at on public.estimates;
 create trigger set_estimates_updated_at before update on public.estimates
 for each row execute function public.set_updated_at();
@@ -215,6 +234,7 @@ alter table public.consultation_requests enable row level security;
 alter table public.crm_contacts enable row level security;
 alter table public.service_agreements enable row level security;
 alter table public.crm_activities enable row level security;
+alter table public.crm_tasks enable row level security;
 alter table public.estimates enable row level security;
 alter table public.estimate_line_items enable row level security;
 alter table public.site_settings enable row level security;
@@ -278,6 +298,11 @@ with check (exists (select 1 from public.profiles p where p.id = auth.uid() and 
 
 create policy "crm_activities_admin_access"
 on public.crm_activities for all
+using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+
+create policy "crm_tasks_admin_access"
+on public.crm_tasks for all
 using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
 with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 

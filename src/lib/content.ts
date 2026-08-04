@@ -26,6 +26,13 @@ export type PublicSiteContent = {
   pricingApproach: Array<{ label: string; value: string }>;
 };
 
+export type PublicContactContent = {
+  email: string;
+  phone: string;
+  bookingUrl: string;
+  serviceArea: string[];
+};
+
 export type AdminCatalogContent = {
   services: Array<{
     name: string;
@@ -66,6 +73,21 @@ export type AdminContact = {
     includedServices: string | null;
   } | null;
   activityCount: number;
+  taskCount: number;
+  openTaskCount: number;
+};
+
+export type AdminCrmTask = {
+  id: string;
+  contactId: string | null;
+  contactName: string | null;
+  title: string;
+  notes: string | null;
+  status: string;
+  dueDate: string | null;
+  reminderAt: string | null;
+  assignedTo: string | null;
+  completedAt: string | null;
 };
 
 export type EstimateLineItem = {
@@ -267,6 +289,22 @@ export async function getPublicSiteContent(): Promise<PublicSiteContent> {
   };
 }
 
+export async function getPublicContactContent(): Promise<PublicContactContent> {
+  const settings = await getSiteSettings();
+  const serviceAreaSetting = settings.service_area ?? settings.contact_service_area ?? "";
+  const serviceArea = serviceAreaSetting
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return {
+    email: settings.contact_email ?? "Use the form below",
+    phone: settings.contact_phone ?? "Shared after initial contact",
+    bookingUrl: settings.booking_url ?? fallbackCompany.bookingUrl,
+    serviceArea: serviceArea.length > 0 ? serviceArea : fallbackCompany.serviceArea,
+  };
+}
+
 export async function getAdminCatalogContent(): Promise<AdminCatalogContent> {
   if (!canUseSupabase()) {
     return { services: [], hardware: [] };
@@ -366,6 +404,10 @@ export async function getAdminCrmContacts(): Promise<AdminContact[]> {
         : Promise.resolve({ data: [], error: null }),
     ]);
 
+    const tasksData = contactIds.length > 0
+      ? (await supabase.from("crm_tasks").select("contact_id, status").in("contact_id", contactIds)).data ?? []
+      : [];
+
     const agreementMap = new Map<string, { billingFrequency: string | null; monthlyAmount: number | null; includedServices: string | null }>();
     for (const agreement of agreementsData ?? []) {
       agreementMap.set(agreement.contact_id, {
@@ -381,6 +423,17 @@ export async function getAdminCrmContacts(): Promise<AdminContact[]> {
       activityCounts.set(activity.contact_id, current + 1);
     }
 
+    const taskCounts = new Map<string, { total: number; open: number }>();
+    for (const task of tasksData ?? []) {
+      if (!task.contact_id) continue;
+      const current = taskCounts.get(task.contact_id) ?? { total: 0, open: 0 };
+      current.total += 1;
+      if (task.status !== "completed") {
+        current.open += 1;
+      }
+      taskCounts.set(task.contact_id, current);
+    }
+
     return contactsData.map((contact) => ({
       id: contact.id,
       fullName: contact.full_name,
@@ -391,6 +444,54 @@ export async function getAdminCrmContacts(): Promise<AdminContact[]> {
       notes: contact.notes,
       agreement: agreementMap.get(contact.id) ?? null,
       activityCount: activityCounts.get(contact.id) ?? 0,
+      taskCount: taskCounts.get(contact.id)?.total ?? 0,
+      openTaskCount: taskCounts.get(contact.id)?.open ?? 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getAdminCrmTasks(): Promise<AdminCrmTask[]> {
+  if (!canUseSupabase()) {
+    return [];
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (auth.profile?.role !== "admin") {
+      return [];
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const [{ data: tasksData, error: tasksError }, { data: contactsData }] = await Promise.all([
+      supabase
+        .from("crm_tasks")
+        .select("id, contact_id, title, notes, status, due_date, reminder_at, assigned_to, completed_at")
+        .order("created_at", { ascending: false }),
+      supabase.from("crm_contacts").select("id, full_name"),
+    ]);
+
+    if (tasksError || !tasksData) {
+      return [];
+    }
+
+    const contactMap = new Map<string, string>();
+    for (const contact of contactsData ?? []) {
+      contactMap.set(contact.id, contact.full_name);
+    }
+
+    return tasksData.map((task) => ({
+      id: task.id,
+      contactId: task.contact_id,
+      contactName: task.contact_id ? contactMap.get(task.contact_id) ?? null : null,
+      title: task.title,
+      notes: task.notes,
+      status: task.status,
+      dueDate: task.due_date,
+      reminderAt: task.reminder_at,
+      assignedTo: task.assigned_to,
+      completedAt: task.completed_at,
     }));
   } catch {
     return [];

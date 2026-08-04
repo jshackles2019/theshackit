@@ -100,21 +100,64 @@ export default async function AdminServicesPage({
         </article>
       </div>
 
-      <form action={saveSiteSettingAction} className="mt-6 rounded-3xl bg-slate-50 p-6">
+      <section className="mt-6 rounded-3xl bg-slate-50 p-6">
         <h2 className="text-lg font-semibold">Website copy</h2>
-        <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <label className="grid gap-2 text-sm font-medium text-slate-700">
-            Setting key
-            <input name="key" className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="hero_headline" />
-          </label>
-          <label className="grid gap-2 text-sm font-medium text-slate-700">
-            Value
-            <input name="value" className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="The Shack - IT Services You Can Trust" />
-          </label>
+        <p className="mt-2 text-sm text-slate-600">
+          Use the quick fields for contact and booking details, then use the generic editor for hero, about, and other copy.
+        </p>
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <form action={saveSiteSettingAction} className="rounded-2xl bg-white p-4 shadow-sm">
+            <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+            <input type="hidden" name="key" value="contact_email" />
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Contact email
+              <input name="value" type="email" placeholder="hello@example.com" className="rounded-2xl border border-slate-300 px-4 py-3" />
+            </label>
+            <button className="mt-3 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">Save email</button>
+          </form>
+          <form action={saveSiteSettingAction} className="rounded-2xl bg-white p-4 shadow-sm">
+            <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+            <input type="hidden" name="key" value="contact_phone" />
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Contact phone
+              <input name="value" type="tel" placeholder="(210) 555-0123" className="rounded-2xl border border-slate-300 px-4 py-3" />
+            </label>
+            <button className="mt-3 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">Save phone</button>
+          </form>
+          <form action={saveSiteSettingAction} className="rounded-2xl bg-white p-4 shadow-sm">
+            <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+            <input type="hidden" name="key" value="service_area" />
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Service area
+              <input name="value" placeholder="Seguin, New Braunfels, San Marcos, Remote" className="rounded-2xl border border-slate-300 px-4 py-3" />
+            </label>
+            <button className="mt-3 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">Save service area</button>
+          </form>
+          <form action={saveSiteSettingAction} className="rounded-2xl bg-white p-4 shadow-sm">
+            <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+            <input type="hidden" name="key" value="booking_url" />
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Booking URL
+              <input name="value" type="url" placeholder="https://calendly.com/..." className="rounded-2xl border border-slate-300 px-4 py-3" />
+            </label>
+            <button className="mt-3 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">Save booking link</button>
+          </form>
         </div>
-        <button className="mt-4 rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">Save copy</button>
-      </form>
+        <form action={saveSiteSettingAction} className="mt-6 rounded-2xl bg-white p-4 shadow-sm">
+          <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Setting key
+              <input name="key" className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="hero_headline" />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Value
+              <input name="value" className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="The Shack - IT Services You Can Trust" />
+            </label>
+          </div>
+          <button className="mt-4 rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">Save copy</button>
+        </form>
+      </section>
     </DashboardShell>
   );
 }

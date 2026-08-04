@@ -1,7 +1,7 @@
-import { addCrmActivityAction, saveContactAction } from "@/app/actions";
+import { addCrmActivityAction, createCrmTaskAction, saveContactAction, updateCrmTaskAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StatusBanner } from "@/components/status-banner";
-import { getAdminCrmContacts } from "@/lib/content";
+import { getAdminCrmContacts, getAdminCrmTasks } from "@/lib/content";
 import { crmStages } from "@/lib/site";
 
 export default async function AdminCrmPage({
@@ -9,7 +9,7 @@ export default async function AdminCrmPage({
 }: {
   searchParams?: { success?: string; error?: string };
 }) {
-  const contacts = await getAdminCrmContacts();
+  const [contacts, tasks] = await Promise.all([getAdminCrmContacts(), getAdminCrmTasks()]);
 
   return (
     <DashboardShell
@@ -99,6 +99,135 @@ export default async function AdminCrmPage({
         </form>
       </div>
 
+      <section className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold">CRM tasks and reminders</h2>
+        <p className="mt-2 text-sm text-slate-600">Create follow-ups, assign them to a person, and track due dates or reminders from one place.</p>
+        <form action={createCrmTaskAction} className="mt-5 grid gap-4 rounded-2xl bg-slate-50 p-4">
+          <input type="hidden" name="redirectTo" value="/dashboard/admin/crm" />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Contact
+              <select name="contactId" className="rounded-2xl border border-slate-300 px-4 py-3">
+                <option value="">No contact linked</option>
+                {contacts.map((contact) => (
+                  <option key={contact.id} value={contact.id}>
+                    {contact.fullName} ({contact.email})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Assigned to
+              <input name="assignedTo" className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="John / Admin / Team member" />
+            </label>
+          </div>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            Title
+            <input name="title" required className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Call back about proposal" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            Notes
+            <textarea name="notes" rows={3} className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Add context, next steps, or blockers." />
+          </label>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Status
+              <select name="status" className="rounded-2xl border border-slate-300 px-4 py-3">
+                <option value="open">Open</option>
+                <option value="in_progress">In progress</option>
+                <option value="completed">Completed</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Due date
+              <input name="dueDate" type="date" className="rounded-2xl border border-slate-300 px-4 py-3" />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Reminder
+              <input name="reminderAt" type="datetime-local" className="rounded-2xl border border-slate-300 px-4 py-3" />
+            </label>
+          </div>
+          <button className="w-fit rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">Save task</button>
+        </form>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          {tasks.length > 0 ? tasks.map((task) => (
+            <form key={task.id} action={updateCrmTaskAction} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <input type="hidden" name="redirectTo" value="/dashboard/admin/crm" />
+              <input type="hidden" name="taskId" value={task.id} />
+              <div className="grid gap-3">
+                <div className="rounded-2xl bg-white p-4 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-950">{task.title}</p>
+                      <p className="text-sm text-slate-600">
+                        {task.contactName ?? "No contact linked"} • {task.assignedTo ?? "Unassigned"}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">
+                      {task.status.replaceAll("_", " ")}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-600">
+                    {task.dueDate ? `Due ${task.dueDate}` : "No due date"}{task.reminderAt ? ` • Reminder ${new Date(task.reminderAt).toLocaleString()}` : ""}
+                  </p>
+                  {task.notes ? <p className="mt-3 text-sm leading-6 text-slate-700">{task.notes}</p> : null}
+                </div>
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  Contact
+                  <select name="contactId" defaultValue={task.contactId ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3">
+                    <option value="">No contact linked</option>
+                    {contacts.map((contact) => (
+                      <option key={contact.id} value={contact.id}>
+                        {contact.fullName} ({contact.email})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  Title
+                  <input name="title" defaultValue={task.title} className="rounded-2xl border border-slate-300 px-4 py-3" />
+                </label>
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  Notes
+                  <textarea name="notes" rows={3} defaultValue={task.notes ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
+                </label>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                    Assigned to
+                    <input name="assignedTo" defaultValue={task.assignedTo ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
+                  </label>
+                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                    Status
+                    <select name="status" defaultValue={task.status} className="rounded-2xl border border-slate-300 px-4 py-3">
+                      <option value="open">Open</option>
+                      <option value="in_progress">In progress</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                    Due date
+                    <input name="dueDate" type="date" defaultValue={task.dueDate ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
+                  </label>
+                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                    Reminder
+                    <input
+                      name="reminderAt"
+                      type="datetime-local"
+                      defaultValue={task.reminderAt ? task.reminderAt.slice(0, 16) : ""}
+                      className="rounded-2xl border border-slate-300 px-4 py-3"
+                    />
+                  </label>
+                </div>
+                <button className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">Update task</button>
+              </div>
+            </form>
+          )) : <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">No CRM tasks yet.</div>}
+        </div>
+      </section>
+
       <article className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold">Saved CRM contacts</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -115,7 +244,9 @@ export default async function AdminCrmPage({
                   {contact.agreement.billingFrequency ?? "No billing frequency"} • {contact.agreement.includedServices ?? "No service agreement details"}
                 </p>
               ) : null}
-              <p className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-500">{contact.activityCount} activity item(s)</p>
+              <p className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+                {contact.activityCount} activity item(s) • {contact.openTaskCount} open task(s)
+              </p>
             </div>
           )) : <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">No CRM contacts saved yet.</div>}
         </div>

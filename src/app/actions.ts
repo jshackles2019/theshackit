@@ -71,6 +71,29 @@ const activitySchema = z.object({
   redirectTo: z.string().optional(),
 });
 
+const taskSchema = z.object({
+  contactId: z.string().trim().optional(),
+  title: z.string().trim().min(2),
+  notes: z.string().trim().optional(),
+  status: z.string().trim().optional(),
+  dueDate: z.string().trim().optional(),
+  reminderAt: z.string().trim().optional(),
+  assignedTo: z.string().trim().optional(),
+  redirectTo: z.string().optional(),
+});
+
+const taskUpdateSchema = z.object({
+  taskId: z.string().trim().min(1),
+  contactId: z.string().trim().optional(),
+  title: z.string().trim().min(2),
+  notes: z.string().trim().optional(),
+  status: z.string().trim().optional(),
+  dueDate: z.string().trim().optional(),
+  reminderAt: z.string().trim().optional(),
+  assignedTo: z.string().trim().optional(),
+  redirectTo: z.string().optional(),
+});
+
 const estimateSchema = z.object({
   contactId: z.string().trim().optional(),
   title: z.string().trim().min(2),
@@ -181,6 +204,15 @@ async function recalculateEstimateTotals(
       updated_at: new Date().toISOString(),
     })
     .eq("id", estimateId);
+}
+
+function parseReminderAt(value: string | undefined) {
+  if (!value) return null;
+  const reminderDate = new Date(value);
+  if (Number.isNaN(reminderDate.getTime())) {
+    return undefined;
+  }
+  return reminderDate.toISOString();
 }
 
 export async function signUpAction(formData: FormData) {
@@ -526,6 +558,95 @@ export async function addCrmActivityAction(formData: FormData) {
   }
 
   jump(redirectTo, "success", "Activity logged.");
+}
+
+export async function createCrmTaskAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/crm");
+  const parsed = taskSchema.safeParse({
+    contactId: formData.get("contactId"),
+    title: formData.get("title"),
+    notes: formData.get("notes"),
+    status: formData.get("status"),
+    dueDate: formData.get("dueDate"),
+    reminderAt: formData.get("reminderAt"),
+    assignedTo: formData.get("assignedTo"),
+    redirectTo,
+  });
+
+  if (!parsed.success) {
+    jump(redirectTo, "error", "Please complete the task form.");
+  }
+
+  const reminderAt = parseReminderAt(parsed.data.reminderAt);
+  if (reminderAt === undefined) {
+    jump(redirectTo, "error", "Enter a valid reminder date and time.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const auth = await getCurrentAuth();
+  const { error } = await supabase.from("crm_tasks").insert({
+    contact_id: parsed.data.contactId || null,
+    title: parsed.data.title,
+    notes: parsed.data.notes ?? null,
+    status: parsed.data.status ?? "open",
+    due_date: parsed.data.dueDate || null,
+    reminder_at: reminderAt,
+    assigned_to: parsed.data.assignedTo || null,
+    created_by_user_id: auth.user?.id ?? null,
+  });
+
+  if (error) {
+    jump(redirectTo, "error", error.message);
+  }
+
+  jump(redirectTo, "success", "Task created.");
+}
+
+export async function updateCrmTaskAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/crm");
+  const parsed = taskUpdateSchema.safeParse({
+    taskId: formData.get("taskId"),
+    contactId: formData.get("contactId"),
+    title: formData.get("title"),
+    notes: formData.get("notes"),
+    status: formData.get("status"),
+    dueDate: formData.get("dueDate"),
+    reminderAt: formData.get("reminderAt"),
+    assignedTo: formData.get("assignedTo"),
+    redirectTo,
+  });
+
+  if (!parsed.success) {
+    jump(redirectTo, "error", "Please complete the task update form.");
+  }
+
+  const reminderAt = parseReminderAt(parsed.data.reminderAt);
+  if (reminderAt === undefined) {
+    jump(redirectTo, "error", "Enter a valid reminder date and time.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const completedAt = parsed.data.status === "completed" ? new Date().toISOString() : null;
+  const { error } = await supabase
+    .from("crm_tasks")
+    .update({
+      contact_id: parsed.data.contactId || null,
+      title: parsed.data.title,
+      notes: parsed.data.notes ?? null,
+      status: parsed.data.status ?? "open",
+      due_date: parsed.data.dueDate || null,
+      reminder_at: reminderAt,
+      assigned_to: parsed.data.assignedTo || null,
+      completed_at: completedAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.taskId);
+
+  if (error) {
+    jump(redirectTo, "error", error.message);
+  }
+
+  jump(redirectTo, "success", "Task updated.");
 }
 
 export async function createEstimateAction(formData: FormData) {
