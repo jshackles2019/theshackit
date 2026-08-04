@@ -221,7 +221,7 @@ alter table public.site_settings enable row level security;
 
 create policy "profiles_select_own_or_admin"
 on public.profiles for select
-using (auth.uid() = id or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+using (auth.uid() = id);
 
 create policy "profiles_insert_own"
 on public.profiles for insert
@@ -229,8 +229,8 @@ with check (auth.uid() = id);
 
 create policy "profiles_update_own_or_admin"
 on public.profiles for update
-using (auth.uid() = id or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
-with check (auth.uid() = id or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+using (auth.uid() = id)
+with check (auth.uid() = id);
 
 create policy "services_select_public"
 on public.services for select
