@@ -1,14 +1,16 @@
 import { addCrmActivityAction, saveContactAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StatusBanner } from "@/components/status-banner";
+import { getAdminCrmContacts } from "@/lib/content";
 import { crmStages } from "@/lib/site";
-import { seedContacts } from "@/lib/mock-data";
 
-export default function AdminCrmPage({
+export default async function AdminCrmPage({
   searchParams,
 }: {
   searchParams?: { success?: string; error?: string };
 }) {
+  const contacts = await getAdminCrmContacts();
+
   return (
     <DashboardShell
       title="CRM workspace"
@@ -98,17 +100,24 @@ export default function AdminCrmPage({
       </div>
 
       <article className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold">Seeded CRM preview</h2>
+        <h2 className="text-lg font-semibold">Saved CRM contacts</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          {seedContacts.map((contact) => (
+          {contacts.length > 0 ? contacts.map((contact) => (
             <div key={contact.id} className="rounded-2xl bg-slate-50 p-4">
-              <p className="font-semibold">{contact.name}</p>
-              <p className="text-sm text-slate-600">{contact.company_name}</p>
+              <p className="font-semibold">{contact.fullName}</p>
+              <p className="text-sm text-slate-600">{contact.companyName ?? "No company listed"}</p>
               <p className="mt-2 text-sm text-slate-600">
-                {contact.stage} • {contact.service_agreement}
+                {contact.pipelineStage} • {contact.status}
               </p>
+              <p className="mt-2 text-sm text-slate-500">{contact.email}</p>
+              {contact.agreement ? (
+                <p className="mt-2 text-sm text-slate-600">
+                  {contact.agreement.billingFrequency ?? "No billing frequency"} • {contact.agreement.includedServices ?? "No service agreement details"}
+                </p>
+              ) : null}
+              <p className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-500">{contact.activityCount} activity item(s)</p>
             </div>
-          ))}
+          )) : <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">No CRM contacts saved yet.</div>}
         </div>
       </article>
     </DashboardShell>

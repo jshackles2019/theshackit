@@ -1,9 +1,10 @@
 import { DashboardShell } from "@/components/dashboard-shell";
-import { seedEstimates } from "@/lib/mock-data";
 import { getCurrentAuth } from "@/lib/auth";
+import { getClientEstimates } from "@/lib/content";
+import { money } from "@/lib/utils";
 
 export default async function ClientDashboardPage() {
-  const auth = await getCurrentAuth();
+  const [auth, estimates] = await Promise.all([getCurrentAuth(), getClientEstimates()]);
   const includedServices = ["Help desk", "Patch management", "Workstation support", "Basic software support"];
 
   return (
@@ -18,7 +19,7 @@ export default async function ClientDashboardPage() {
         </article>
         <article className="rounded-3xl bg-white p-6 text-slate-950 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">Estimate total</p>
-          <p className="mt-3 text-2xl font-semibold">$1,850</p>
+          <p className="mt-3 text-2xl font-semibold">{estimates.length > 0 ? money(estimates.reduce((sum, estimate) => sum + estimate.totalSell, 0)) : "$0.00"}</p>
         </article>
         <article className="rounded-3xl bg-white p-6 text-slate-950 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">Service level</p>
@@ -53,12 +54,13 @@ export default async function ClientDashboardPage() {
       <article className="mt-8 rounded-3xl bg-slate-50 p-6">
         <h2 className="text-lg font-semibold">Finalized estimates</h2>
         <div className="mt-4 space-y-3">
-          {seedEstimates.map((estimate) => (
+          {estimates.length > 0 ? estimates.map((estimate) => (
             <div key={estimate.id} className="rounded-2xl bg-white p-4 shadow-sm">
-              <p className="font-semibold">{estimate.estimate_number}</p>
-              <p className="text-sm text-slate-600">{estimate.contact_name}</p>
+              <p className="font-semibold">{estimate.estimateNumber}</p>
+              <p className="text-sm text-slate-600">{estimate.title}</p>
+              <p className="text-sm text-slate-500">{estimate.contactName ?? "No linked contact"}</p>
             </div>
-          ))}
+          )) : <div className="rounded-2xl bg-white p-4 text-sm text-slate-600">No finalized estimates are visible to your account yet.</div>}
         </div>
       </article>
     </DashboardShell>

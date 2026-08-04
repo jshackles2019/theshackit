@@ -52,6 +52,48 @@ export type DashboardStats = {
   isAdmin: boolean;
 };
 
+export type AdminContact = {
+  id: string;
+  fullName: string;
+  email: string;
+  companyName: string | null;
+  pipelineStage: string;
+  status: string;
+  notes: string | null;
+  agreement: {
+    billingFrequency: string | null;
+    monthlyAmount: number | null;
+    includedServices: string | null;
+  } | null;
+  activityCount: number;
+};
+
+export type AdminEstimate = {
+  id: string;
+  estimateNumber: string;
+  title: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  status: string;
+  visibleToClient: boolean;
+  subtotalSell: number;
+  subtotalCost: number;
+  totalSell: number;
+  totalCost: number;
+  finalizedAt: string | null;
+  createdAt: string;
+};
+
+export type ClientEstimate = {
+  id: string;
+  estimateNumber: string;
+  title: string;
+  contactName: string | null;
+  status: string;
+  totalSell: number;
+  finalizedAt: string | null;
+};
+
 function formatCurrency(value: number | null) {
   if (value === null || value === undefined) return null;
   return `$${value.toFixed(2)}`;
@@ -235,5 +277,171 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     };
   } catch {
     return { contacts: 0, estimates: 0, isAdmin: false };
+  }
+}
+
+export async function getAdminCrmContacts(): Promise<AdminContact[]> {
+  if (!canUseSupabase()) {
+    return [];
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (auth.profile?.role !== "admin") {
+      return [];
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: contactsData, error: contactsError } = await supabase
+      .from("crm_contacts")
+      .select("id, full_name, email, company_name, pipeline_stage, status, notes")
+      .order("updated_at", { ascending: false });
+
+    if (contactsError || !contactsData) {
+      return [];
+    }
+
+    const contactIds = contactsData.map((contact) => contact.id);
+
+    const [{ data: agreementsData }, { data: activitiesData }] = await Promise.all([
+      contactIds.length > 0
+        ? supabase.from("service_agreements").select("contact_id, billing_frequency, monthly_amount, included_services").in("contact_id", contactIds)
+        : Promise.resolve({ data: [], error: null }),
+      contactIds.length > 0
+        ? supabase.from("crm_activities").select("contact_id").in("contact_id", contactIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    const agreementMap = new Map<string, { billingFrequency: string | null; monthlyAmount: number | null; includedServices: string | null }>();
+    for (const agreement of agreementsData ?? []) {
+      agreementMap.set(agreement.contact_id, {
+        billingFrequency: agreement.billing_frequency,
+        monthlyAmount: agreement.monthly_amount,
+        includedServices: agreement.included_services,
+      });
+    }
+
+    const activityCounts = new Map<string, number>();
+    for (const activity of activitiesData ?? []) {
+      const current = activityCounts.get(activity.contact_id) ?? 0;
+      activityCounts.set(activity.contact_id, current + 1);
+    }
+
+    return contactsData.map((contact) => ({
+      id: contact.id,
+      fullName: contact.full_name,
+      email: contact.email,
+      companyName: contact.company_name,
+      pipelineStage: contact.pipeline_stage,
+      status: contact.status,
+      notes: contact.notes,
+      agreement: agreementMap.get(contact.id) ?? null,
+      activityCount: activityCounts.get(contact.id) ?? 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getAdminEstimates(): Promise<AdminEstimate[]> {
+  if (!canUseSupabase()) {
+    return [];
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (auth.profile?.role !== "admin") {
+      return [];
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: estimateData, error: estimateError } = await supabase
+      .from("estimates")
+      .select("id, estimate_number, contact_id, title, notes, status, visible_to_client, subtotal_sell, subtotal_cost, total_sell, total_cost, finalized_at, created_at")
+      .order("created_at", { ascending: false });
+
+    if (estimateError || !estimateData) {
+      return [];
+    }
+
+    const contactIds = estimateData.map((estimate) => estimate.contact_id).filter(Boolean) as string[];
+    const contactMap = new Map<string, { fullName: string; email: string }>();
+
+    if (contactIds.length > 0) {
+      const { data: contactsData } = await supabase.from("crm_contacts").select("id, full_name, email").in("id", contactIds);
+      for (const contact of contactsData ?? []) {
+        contactMap.set(contact.id, {
+          fullName: contact.full_name,
+          email: contact.email,
+        });
+      }
+    }
+
+    return estimateData.map((estimate) => ({
+      id: estimate.id,
+      estimateNumber: estimate.estimate_number,
+      title: estimate.title,
+      contactName: estimate.contact_id ? contactMap.get(estimate.contact_id)?.fullName ?? null : null,
+      contactEmail: estimate.contact_id ? contactMap.get(estimate.contact_id)?.email ?? null : null,
+      status: estimate.status,
+      visibleToClient: estimate.visible_to_client,
+      subtotalSell: Number(estimate.subtotal_sell ?? 0),
+      subtotalCost: Number(estimate.subtotal_cost ?? 0),
+      totalSell: Number(estimate.total_sell ?? 0),
+      totalCost: Number(estimate.total_cost ?? 0),
+      finalizedAt: estimate.finalized_at,
+      createdAt: estimate.created_at,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getClientEstimates(): Promise<ClientEstimate[]> {
+  if (!canUseSupabase()) {
+    return [];
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (!auth.user) {
+      return [];
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: estimateData, error: estimateError } = await supabase
+      .from("estimates")
+      .select("id, estimate_number, contact_id, title, status, total_sell, finalized_at")
+      .eq("status", "finalized")
+      .eq("visible_to_client", true)
+      .order("finalized_at", { ascending: false });
+
+    if (estimateError || !estimateData) {
+      return [];
+    }
+
+    const contactIds = estimateData.map((estimate) => estimate.contact_id).filter(Boolean) as string[];
+    const contactMap = new Map<string, { fullName: string }>();
+
+    if (contactIds.length > 0) {
+      const { data: contactsData } = await supabase.from("crm_contacts").select("id, full_name").in("id", contactIds);
+      for (const contact of contactsData ?? []) {
+        contactMap.set(contact.id, {
+          fullName: contact.full_name,
+        });
+      }
+    }
+
+    return estimateData.map((estimate) => ({
+      id: estimate.id,
+      estimateNumber: estimate.estimate_number,
+      title: estimate.title,
+      contactName: estimate.contact_id ? contactMap.get(estimate.contact_id)?.fullName ?? null : null,
+      status: estimate.status,
+      totalSell: Number(estimate.total_sell ?? 0),
+      finalizedAt: estimate.finalized_at,
+    }));
+  } catch {
+    return [];
   }
 }

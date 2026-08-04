@@ -1,14 +1,16 @@
 import { addEstimateLineItemAction, createEstimateAction, finalizeEstimateAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StatusBanner } from "@/components/status-banner";
-import { seedEstimates } from "@/lib/mock-data";
+import { getAdminEstimates } from "@/lib/content";
 import { money } from "@/lib/utils";
 
-export default function AdminEstimatesPage({
+export default async function AdminEstimatesPage({
   searchParams,
 }: {
   searchParams?: { success?: string; error?: string };
 }) {
+  const estimates = await getAdminEstimates();
+
   return (
     <DashboardShell
       title="Estimate builder"
@@ -76,19 +78,23 @@ export default function AdminEstimatesPage({
       <article className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold">Estimate preview</h2>
         <div className="mt-4 space-y-4">
-          {seedEstimates.map((estimate) => (
+          {estimates.length > 0 ? estimates.map((estimate) => (
             <div key={estimate.id} className="rounded-2xl bg-slate-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="font-semibold">{estimate.estimate_number}</p>
-                  <p className="text-sm text-slate-600">{estimate.contact_name}</p>
+                  <p className="font-semibold">{estimate.estimateNumber}</p>
+                  <p className="text-sm text-slate-600">{estimate.title}</p>
+                  <p className="text-sm text-slate-500">{estimate.contactName ?? "Unassigned"} • {estimate.contactEmail ?? "No contact email"}</p>
                 </div>
                 <div className="text-sm text-slate-600">
-                  Sell {money(estimate.sell_total)} • Internal {money(estimate.internal_total)}
+                  Sell {money(estimate.totalSell)} • Internal {money(estimate.totalCost)}
                 </div>
               </div>
+              <div className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+                {estimate.status} • {estimate.visibleToClient ? "Visible to client" : "Internal draft"}
+              </div>
             </div>
-          ))}
+          )) : <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">No estimates saved yet.</div>}
         </div>
         <form action={finalizeEstimateAction} className="mt-6">
           <input type="hidden" name="redirectTo" value="/dashboard/admin/estimates" />

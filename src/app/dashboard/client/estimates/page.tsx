@@ -1,14 +1,16 @@
 import { createClientEstimateRequestAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StatusBanner } from "@/components/status-banner";
-import { seedEstimates } from "@/lib/mock-data";
+import { getClientEstimates } from "@/lib/content";
 import { money } from "@/lib/utils";
 
-export default function ClientEstimatesPage({
+export default async function ClientEstimatesPage({
   searchParams,
 }: {
   searchParams?: { success?: string; error?: string };
 }) {
+  const estimates = await getClientEstimates();
+
   return (
     <DashboardShell
       title="Client estimates"
@@ -30,17 +32,18 @@ export default function ClientEstimatesPage({
       <article className="mt-6 rounded-3xl bg-slate-50 p-6">
         <h2 className="text-lg font-semibold">Finalized estimates</h2>
         <div className="mt-4 space-y-4">
-          {seedEstimates.map((estimate) => (
+          {estimates.length > 0 ? estimates.map((estimate) => (
             <div key={estimate.id} className="rounded-2xl bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="font-semibold">{estimate.estimate_number}</p>
-                  <p className="text-sm text-slate-600">{estimate.contact_name}</p>
+                  <p className="font-semibold">{estimate.estimateNumber}</p>
+                  <p className="text-sm text-slate-600">{estimate.title}</p>
+                  <p className="text-sm text-slate-500">{estimate.contactName ?? "No linked contact"}</p>
                 </div>
-                <div className="text-sm font-medium text-slate-950">{money(estimate.sell_total)}</div>
+                <div className="text-sm font-medium text-slate-950">{money(estimate.totalSell)}</div>
               </div>
             </div>
-          ))}
+          )) : <div className="rounded-2xl bg-white p-4 text-sm text-slate-600">No finalized estimates are visible to your account yet.</div>}
         </div>
       </article>
     </DashboardShell>
