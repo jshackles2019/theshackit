@@ -25,6 +25,13 @@ export default async function ClientDashboardPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">Service level</p>
           <p className="mt-3 text-lg font-semibold">Managed IT Services</p>
         </article>
+        <article className="rounded-3xl bg-white p-6 text-slate-950 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">Billing</p>
+          <p className="mt-3 text-sm text-slate-600">View invoices and payment history from your portal.</p>
+          <a href="/dashboard/client/invoices" className="mt-4 inline-flex rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
+            Open invoices
+          </a>
+        </article>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">

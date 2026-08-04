@@ -94,6 +94,24 @@ const taskUpdateSchema = z.object({
   redirectTo: z.string().optional(),
 });
 
+const invoiceUpdateSchema = z.object({
+  invoiceId: z.string().trim().min(1),
+  title: z.string().trim().min(2),
+  notes: z.string().trim().optional(),
+  status: z.string().trim().optional(),
+  dueDate: z.string().trim().optional(),
+  redirectTo: z.string().optional(),
+});
+
+const invoicePaymentSchema = z.object({
+  invoiceId: z.string().trim().min(1),
+  amount: z.coerce.number().min(0.01),
+  method: z.string().trim().min(2),
+  reference: z.string().trim().optional(),
+  notes: z.string().trim().optional(),
+  redirectTo: z.string().optional(),
+});
+
 const estimateSchema = z.object({
   contactId: z.string().trim().optional(),
   title: z.string().trim().min(2),
@@ -213,6 +231,119 @@ function parseReminderAt(value: string | undefined) {
     return undefined;
   }
   return reminderDate.toISOString();
+}
+
+function parseDueDate(value: string | undefined) {
+  if (!value) return null;
+  const dueDate = new Date(value);
+  if (Number.isNaN(dueDate.getTime())) {
+    return undefined;
+  }
+  return dueDate.toISOString().slice(0, 10);
+}
+
+async function syncInvoiceFromEstimate(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  estimateId: string,
+  status: string = "sent",
+) {
+  const { data: estimate, error: estimateError } = await supabase
+    .from("estimates")
+    .select("id, estimate_number, contact_id, title, notes, total_sell, finalized_at")
+    .eq("id", estimateId)
+    .maybeSingle();
+
+  if (estimateError || !estimate || !estimate.contact_id) {
+    return { error: estimateError?.message ?? "Estimate not found or missing contact.", invoiceId: null as string | null };
+  }
+
+  const issuedAt = estimate.finalized_at ?? new Date().toISOString();
+  const dueDate = new Date(issuedAt);
+  dueDate.setDate(dueDate.getDate() + 30);
+  const total = Number(estimate.total_sell ?? 0);
+
+  const { data: existingInvoice } = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("estimate_id", estimate.id)
+    .maybeSingle();
+
+  const payload = {
+    invoice_number: `INV-${estimate.estimate_number}`,
+    contact_id: estimate.contact_id,
+    estimate_id: estimate.id,
+    title: estimate.title,
+    notes: estimate.notes ?? null,
+    status,
+    issued_at: issuedAt,
+    due_date: dueDate.toISOString().slice(0, 10),
+    subtotal: total,
+    tax_total: 0,
+    total,
+    sent_at: status === "sent" ? new Date().toISOString() : existingInvoice ? undefined : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: invoice, error: invoiceError } = existingInvoice
+    ? await supabase
+        .from("invoices")
+        .update(payload)
+        .eq("id", existingInvoice.id)
+        .select("id")
+        .maybeSingle()
+    : await supabase
+        .from("invoices")
+        .insert({
+          ...payload,
+          amount_paid: 0,
+          balance_due: total,
+        })
+        .select("id")
+        .maybeSingle();
+
+  if (invoiceError || !invoice) {
+    return { error: invoiceError?.message ?? "Unable to sync invoice.", invoiceId: null as string | null };
+  }
+
+  await recalculateInvoiceBalance(supabase, invoice.id);
+
+  return { error: null, invoiceId: invoice.id as string };
+}
+
+async function recalculateInvoiceBalance(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  invoiceId: string,
+) {
+  const [{ data: invoice }, { data: payments }] = await Promise.all([
+    supabase.from("invoices").select("id, total, due_date").eq("id", invoiceId).maybeSingle(),
+    supabase.from("invoice_payments").select("amount, received_at").eq("invoice_id", invoiceId),
+  ]);
+
+  if (!invoice) {
+    return;
+  }
+
+  const amountPaid =
+    payments?.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0) ?? 0;
+  const total = Number(invoice.total ?? 0);
+  const balanceDue = Math.max(total - amountPaid, 0);
+  const latestPayment = payments?.length
+    ? [...payments].sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime())[0]
+    : null;
+  const isPaid = balanceDue <= 0.01 && total > 0;
+
+  const updatePayload: Record<string, string | number | null> = {
+    amount_paid: amountPaid,
+    balance_due: balanceDue,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (isPaid) {
+    updatePayload.status = "paid";
+    updatePayload.paid_at = latestPayment?.received_at ?? new Date().toISOString();
+  }
+
+  await supabase.from("invoices").update(updatePayload).eq("id", invoiceId);
 }
 
 export async function signUpAction(formData: FormData) {
@@ -810,7 +941,104 @@ export async function finalizeEstimateAction(formData: FormData) {
     jump(redirectTo, "error", error.message);
   }
 
+  const { error: invoiceError } = await syncInvoiceFromEstimate(supabase, estimateId, "sent");
+  if (invoiceError) {
+    jump(redirectTo, "error", invoiceError);
+  }
+
   jump(redirectTo, "success", "Estimate finalized.");
+}
+
+export async function updateInvoiceAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/invoices");
+  const parsed = invoiceUpdateSchema.safeParse({
+    invoiceId: formData.get("invoiceId"),
+    title: formData.get("title"),
+    notes: formData.get("notes"),
+    status: formData.get("status"),
+    dueDate: formData.get("dueDate"),
+    redirectTo,
+  });
+
+  if (!parsed.success) {
+    jump(redirectTo, "error", "Please complete the invoice form.");
+  }
+
+  const dueDate = parseDueDate(parsed.data.dueDate);
+  if (dueDate === undefined) {
+    jump(redirectTo, "error", "Enter a valid invoice due date.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const { error } = await supabase
+    .from("invoices")
+    .update({
+      title: parsed.data.title,
+      notes: parsed.data.notes ?? null,
+      status: parsed.data.status ?? "draft",
+      due_date: dueDate,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.invoiceId);
+
+  if (error) {
+    jump(redirectTo, "error", error.message);
+  }
+
+  await recalculateInvoiceBalance(supabase, parsed.data.invoiceId);
+  jump(redirectTo, "success", "Invoice updated.");
+}
+
+export async function createInvoiceFromEstimateAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/invoices");
+  const estimateId = String(formData.get("estimateId") ?? "").trim();
+
+  if (!estimateId) {
+    jump(redirectTo, "error", "Enter an estimate ID.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const { error, invoiceId } = await syncInvoiceFromEstimate(supabase, estimateId, "sent");
+
+  if (error || !invoiceId) {
+    jump(redirectTo, "error", error ?? "Unable to create invoice.");
+  }
+
+  jump(redirectTo, "success", "Invoice generated from estimate.");
+}
+
+export async function recordInvoicePaymentAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/invoices");
+  const parsed = invoicePaymentSchema.safeParse({
+    invoiceId: formData.get("invoiceId"),
+    amount: formData.get("amount"),
+    method: formData.get("method"),
+    reference: formData.get("reference"),
+    notes: formData.get("notes"),
+    redirectTo,
+  });
+
+  if (!parsed.success) {
+    jump(redirectTo, "error", "Please complete the payment form.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const auth = await getCurrentAuth();
+  const { error } = await supabase.from("invoice_payments").insert({
+    invoice_id: parsed.data.invoiceId,
+    amount: parsed.data.amount,
+    method: parsed.data.method,
+    reference: parsed.data.reference ?? null,
+    notes: parsed.data.notes ?? null,
+    created_by_user_id: auth.user?.id ?? null,
+  });
+
+  if (error) {
+    jump(redirectTo, "error", error.message);
+  }
+
+  await recalculateInvoiceBalance(supabase, parsed.data.invoiceId);
+  jump(redirectTo, "success", "Payment recorded.");
 }
 
 export async function createClientEstimateRequestAction(formData: FormData) {

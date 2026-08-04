@@ -10,8 +10,10 @@ const links = [
   { href: "/dashboard/admin/services", label: "Services" },
   { href: "/dashboard/admin/crm", label: "CRM" },
   { href: "/dashboard/admin/estimates", label: "Estimates" },
+  { href: "/dashboard/admin/invoices", label: "Invoices" },
   { href: "/dashboard/client", label: "Client" },
   { href: "/dashboard/client/estimates", label: "Client estimates" },
+  { href: "/dashboard/client/invoices", label: "Client invoices" },
 ];
 
 export function DashboardShell({

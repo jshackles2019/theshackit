@@ -60,12 +60,22 @@ export default async function DashboardPage({
                 Client portal access requires the client role.
               </div>
             )}
+            {isAdmin ? (
+              <Link href="/dashboard/admin/invoices" className="rounded-full border border-slate-300 px-4 py-2 text-slate-950">
+                Invoices
+              </Link>
+            ) : null}
+            {isClient ? (
+              <Link href="/dashboard/client/invoices" className="rounded-full border border-slate-300 px-4 py-2 text-slate-950">
+                Client invoices
+              </Link>
+            ) : null}
           </div>
         </article>
         <article className="rounded-3xl bg-sky-50 p-6">
           <h2 className="text-lg font-semibold">Workflow focus</h2>
           <p className="mt-3 text-sm leading-6 text-slate-700">
-            CRM tracking, service management, estimate generation, consultation intake, and client service visibility.
+            CRM tracking, service management, estimate generation, invoicing, consultation intake, and client service visibility.
           </p>
         </article>
       </div>

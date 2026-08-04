@@ -130,6 +130,41 @@ export type ClientEstimate = {
   lineItems: EstimateLineItem[];
 };
 
+export type InvoicePayment = {
+  id: string;
+  amount: number;
+  method: string;
+  reference: string | null;
+  notes: string | null;
+  receivedAt: string;
+};
+
+export type AdminInvoice = {
+  id: string;
+  invoiceNumber: string;
+  contactId: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  estimateId: string | null;
+  estimateNumber: string | null;
+  title: string;
+  notes: string | null;
+  status: string;
+  issuedAt: string | null;
+  dueDate: string | null;
+  subtotal: number;
+  taxTotal: number;
+  total: number;
+  amountPaid: number;
+  balanceDue: number;
+  paymentMethod: string | null;
+  sentAt: string | null;
+  paidAt: string | null;
+  payments: InvoicePayment[];
+};
+
+export type ClientInvoice = AdminInvoice;
+
 function formatCurrency(value: number | null) {
   if (value === null || value === undefined) return null;
   return `$${value.toFixed(2)}`;
@@ -238,6 +273,41 @@ async function getEstimateLineItems(
   }
 
   return lineItemsByEstimate;
+}
+
+async function getInvoicePayments(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  invoiceIds: string[],
+): Promise<Map<string, InvoicePayment[]>> {
+  if (invoiceIds.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabase
+    .from("invoice_payments")
+    .select("id, invoice_id, amount, method, reference, notes, received_at")
+    .in("invoice_id", invoiceIds)
+    .order("received_at", { ascending: true });
+
+  if (error || !data) {
+    return new Map();
+  }
+
+  const paymentsByInvoice = new Map<string, InvoicePayment[]>();
+  for (const payment of data) {
+    const current = paymentsByInvoice.get(payment.invoice_id) ?? [];
+    current.push({
+      id: payment.id,
+      amount: Number(payment.amount ?? 0),
+      method: payment.method,
+      reference: payment.reference,
+      notes: payment.notes,
+      receivedAt: payment.received_at,
+    });
+    paymentsByInvoice.set(payment.invoice_id, current);
+  }
+
+  return paymentsByInvoice;
 }
 
 export async function getPublicSiteContent(): Promise<PublicSiteContent> {
@@ -603,6 +673,170 @@ export async function getClientEstimates(): Promise<ClientEstimate[]> {
       totalSell: Number(estimate.total_sell ?? 0),
       finalizedAt: estimate.finalized_at,
       lineItems: lineItemsByEstimate.get(estimate.id) ?? [],
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getAdminInvoices(): Promise<AdminInvoice[]> {
+  if (!canUseSupabase()) {
+    return [];
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (auth.profile?.role !== "admin") {
+      return [];
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: invoiceData, error: invoiceError } = await supabase
+      .from("invoices")
+      .select("id, invoice_number, contact_id, estimate_id, title, notes, status, issued_at, due_date, subtotal, tax_total, total, amount_paid, balance_due, payment_method, sent_at, paid_at, created_at")
+      .order("created_at", { ascending: false });
+
+    if (invoiceError || !invoiceData) {
+      return [];
+    }
+
+    const contactIds = invoiceData.map((invoice) => invoice.contact_id).filter(Boolean) as string[];
+    const estimateIds = invoiceData.map((invoice) => invoice.estimate_id).filter(Boolean) as string[];
+
+    const [contactsResult, estimatesResult, paymentsByInvoice] = await Promise.all([
+      contactIds.length > 0
+        ? supabase.from("crm_contacts").select("id, full_name, email").in("id", contactIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; full_name: string; email: string }>, error: null }),
+      estimateIds.length > 0
+        ? supabase.from("estimates").select("id, estimate_number").in("id", estimateIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; estimate_number: string }>, error: null }),
+      getInvoicePayments(supabase, invoiceData.map((invoice) => invoice.id)),
+    ]);
+
+    if (contactsResult.error || estimatesResult.error) {
+      return [];
+    }
+
+    const contactMap = new Map<string, { fullName: string; email: string }>();
+    for (const contact of contactsResult.data ?? []) {
+      contactMap.set(contact.id, {
+        fullName: contact.full_name,
+        email: contact.email,
+      });
+    }
+
+    const estimateMap = new Map<string, string>();
+    for (const estimate of estimatesResult.data ?? []) {
+      estimateMap.set(estimate.id, estimate.estimate_number);
+    }
+
+    return invoiceData.map((invoice) => ({
+      id: invoice.id,
+      invoiceNumber: invoice.invoice_number,
+      contactId: invoice.contact_id,
+      contactName: contactMap.get(invoice.contact_id)?.fullName ?? null,
+      contactEmail: contactMap.get(invoice.contact_id)?.email ?? null,
+      estimateId: invoice.estimate_id,
+      estimateNumber: invoice.estimate_id ? estimateMap.get(invoice.estimate_id) ?? null : null,
+      title: invoice.title,
+      notes: invoice.notes,
+      status: invoice.status,
+      issuedAt: invoice.issued_at,
+      dueDate: invoice.due_date,
+      subtotal: Number(invoice.subtotal ?? 0),
+      taxTotal: Number(invoice.tax_total ?? 0),
+      total: Number(invoice.total ?? 0),
+      amountPaid: Number(invoice.amount_paid ?? 0),
+      balanceDue: Number(invoice.balance_due ?? 0),
+      paymentMethod: invoice.payment_method,
+      sentAt: invoice.sent_at,
+      paidAt: invoice.paid_at,
+      payments: paymentsByInvoice.get(invoice.id) ?? [],
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getClientInvoices(): Promise<ClientInvoice[]> {
+  if (!canUseSupabase()) {
+    return [];
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (!auth.user) {
+      return [];
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: invoiceData, error: invoiceError } = await supabase
+      .from("invoices")
+      .select("id, invoice_number, contact_id, estimate_id, title, notes, status, issued_at, due_date, subtotal, tax_total, total, amount_paid, balance_due, payment_method, sent_at, paid_at, created_at")
+      .neq("status", "draft")
+      .order("created_at", { ascending: false });
+
+    if (invoiceError || !invoiceData) {
+      return [];
+    }
+
+    const contactIds = invoiceData.map((invoice) => invoice.contact_id).filter(Boolean) as string[];
+    const estimateIds = invoiceData.map((invoice) => invoice.estimate_id).filter(Boolean) as string[];
+
+    const [contactsResult, estimatesResult, paymentsByInvoice] = await Promise.all([
+      contactIds.length > 0
+        ? supabase.from("crm_contacts").select("id, full_name, email").in("id", contactIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; full_name: string; email: string }>, error: null }),
+      estimateIds.length > 0
+        ? supabase.from("estimates").select("id, estimate_number").in("id", estimateIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; estimate_number: string }>, error: null }),
+      getInvoicePayments(supabase, invoiceData.map((invoice) => invoice.id)),
+    ]);
+
+    if (contactsResult.error || estimatesResult.error) {
+      return [];
+    }
+
+    const contactMap = new Map<string, { fullName: string; email: string }>();
+    for (const contact of contactsResult.data ?? []) {
+      contactMap.set(contact.id, {
+        fullName: contact.full_name,
+        email: contact.email,
+      });
+    }
+
+    const eligibleInvoices = invoiceData.filter((invoice) => {
+      const contact = contactMap.get(invoice.contact_id);
+      return Boolean(contact && contact.email.toLowerCase() === auth.profile?.email?.toLowerCase());
+    });
+
+    const estimateMap = new Map<string, string>();
+    for (const estimate of estimatesResult.data ?? []) {
+      estimateMap.set(estimate.id, estimate.estimate_number);
+    }
+
+    return eligibleInvoices.map((invoice) => ({
+      id: invoice.id,
+      invoiceNumber: invoice.invoice_number,
+      contactId: invoice.contact_id,
+      contactName: contactMap.get(invoice.contact_id)?.fullName ?? null,
+      contactEmail: contactMap.get(invoice.contact_id)?.email ?? null,
+      estimateId: invoice.estimate_id,
+      estimateNumber: invoice.estimate_id ? estimateMap.get(invoice.estimate_id) ?? null : null,
+      title: invoice.title,
+      notes: invoice.notes,
+      status: invoice.status,
+      issuedAt: invoice.issued_at,
+      dueDate: invoice.due_date,
+      subtotal: Number(invoice.subtotal ?? 0),
+      taxTotal: Number(invoice.tax_total ?? 0),
+      total: Number(invoice.total ?? 0),
+      amountPaid: Number(invoice.amount_paid ?? 0),
+      balanceDue: Number(invoice.balance_due ?? 0),
+      paymentMethod: invoice.payment_method,
+      sentAt: invoice.sent_at,
+      paidAt: invoice.paid_at,
+      payments: paymentsByInvoice.get(invoice.id) ?? [],
     }));
   } catch {
     return [];
