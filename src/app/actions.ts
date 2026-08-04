@@ -154,6 +154,28 @@ const siteSettingSchema = z.object({
   redirectTo: z.string().optional(),
 });
 
+const ticketSchema = z.object({
+  subject: z.string().trim().min(3),
+  description: z.string().trim().min(10),
+  contactId: z.string().optional(),
+  redirectTo: z.string().optional(),
+});
+
+const ticketReplySchema = z.object({
+  ticketId: z.string().trim(),
+  message: z.string().trim().min(2),
+  isInternalNote: z.string().optional(),
+  redirectTo: z.string().optional(),
+});
+
+const ticketUpdateSchema = z.object({
+  ticketId: z.string().trim(),
+  status: z.enum(["open", "in_progress", "on_hold", "resolved", "closed"]),
+  priority: z.enum(["low", "medium", "high", "urgent"]),
+  assignedToAdminId: z.string().optional(),
+  redirectTo: z.string().optional(),
+});
+
 function jump(path: string, key: "success" | "error", value: string): never {
   redirect(`${path}?${key}=${encodeURIComponent(value)}`);
 }
@@ -1103,4 +1125,124 @@ export async function saveSiteSettingAction(formData: FormData) {
   }
 
   jump(redirectTo, "success", "Website setting saved.");
+}
+
+export async function createSupportTicketAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/tickets");
+  const parsed = ticketSchema.safeParse({
+    subject: formData.get("subject"),
+    description: formData.get("description"),
+    contactId: formData.get("contactId"),
+    redirectTo,
+  });
+
+  if (!parsed.success) {
+    jump(redirectTo, "error", "Please complete the ticket form.");
+  }
+
+  const auth = await getCurrentAuth();
+  if (!auth.user) {
+    jump("/auth/sign-in", "error", "Please sign in to create a ticket.");
+  }
+
+  if (!canUseSupabase()) {
+    jump(redirectTo, "error", "Connect Supabase env vars to create tickets.");
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: ticket, error } = await supabase
+    .from("support_tickets")
+    .insert({
+      contact_id: parsed.data.contactId || null,
+      subject: parsed.data.subject,
+      description: parsed.data.description,
+      status: "open",
+      priority: "medium",
+      created_by: auth.user.id,
+      source: "dashboard",
+    })
+    .select("id")
+    .single();
+
+  if (error || !ticket) {
+    jump(redirectTo, "error", error?.message ?? "Unable to create ticket.");
+  }
+
+  jump(redirectTo, "success", "Support ticket created.");
+}
+
+export async function addTicketReplyAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/tickets");
+  const parsed = ticketReplySchema.safeParse({
+    ticketId: formData.get("ticketId"),
+    message: formData.get("message"),
+    isInternalNote: formData.get("isInternalNote")?.toString(),
+    redirectTo,
+  });
+
+  if (!parsed.success) {
+    jump(redirectTo, "error", "Please enter a message.");
+  }
+
+  const auth = await getCurrentAuth();
+  if (!auth.user) {
+    jump("/auth/sign-in", "error", "Please sign in to reply to a ticket.");
+  }
+
+  if (!canUseSupabase()) {
+    jump(redirectTo, "error", "Connect Supabase env vars to add replies.");
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("ticket_replies").insert({
+    ticket_id: parsed.data.ticketId,
+    user_id: auth.user.id,
+    message: parsed.data.message,
+    is_internal_note: parsed.data.isInternalNote === "on",
+  });
+
+  if (error) {
+    jump(redirectTo, "error", error.message);
+  }
+
+  await supabase
+    .from("support_tickets")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.ticketId);
+
+  jump(redirectTo, "success", "Reply added.");
+}
+
+export async function updateTicketStatusAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/tickets");
+  const parsed = ticketUpdateSchema.safeParse({
+    ticketId: formData.get("ticketId"),
+    status: formData.get("status"),
+    priority: formData.get("priority"),
+    assignedToAdminId: formData.get("assignedToAdminId"),
+    redirectTo,
+  });
+
+  if (!parsed.success) {
+    jump(redirectTo, "error", "Please complete the ticket update form.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const resolvedAt = parsed.data.status === "resolved" ? new Date().toISOString() : null;
+  const { error } = await supabase
+    .from("support_tickets")
+    .update({
+      status: parsed.data.status,
+      priority: parsed.data.priority,
+      assigned_to_admin: parsed.data.assignedToAdminId || null,
+      resolved_at: resolvedAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.ticketId);
+
+  if (error) {
+    jump(redirectTo, "error", error.message);
+  }
+
+  jump(redirectTo, "success", "Ticket updated.");
 }

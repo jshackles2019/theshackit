@@ -165,6 +165,46 @@ export type AdminInvoice = {
 
 export type ClientInvoice = AdminInvoice;
 
+export type TicketReply = {
+  id: string;
+  ticketId: string;
+  userId: string;
+  userName: string | null;
+  message: string;
+  isInternalNote: boolean;
+  createdAt: string;
+};
+
+export type SupportTicket = {
+  id: string;
+  contactId: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  subject: string;
+  description: string;
+  status: "open" | "in_progress" | "on_hold" | "resolved" | "closed";
+  priority: "low" | "medium" | "high" | "urgent";
+  assignedToAdminId: string | null;
+  assignedToAdminName: string | null;
+  createdById: string;
+  createdByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+  source: "dashboard" | "email";
+  replies: TicketReply[];
+  replyCount: number;
+};
+
+export type SupportEmailSettings = {
+  id: string;
+  supportEmail: string;
+  forwardToAdminEmail: string | null;
+  autoResponseSubject: string;
+  autoResponseBody: string;
+  enabled: boolean;
+};
+
 function formatCurrency(value: number | null) {
   if (value === null || value === undefined) return null;
   return `$${value.toFixed(2)}`;
@@ -1093,5 +1133,344 @@ export async function getClientInvoicesByContactId(contactEmail: string): Promis
     }));
   } catch {
     return [];
+  }
+}
+
+export async function getAdminSupportTickets(): Promise<SupportTicket[]> {
+  if (!canUseSupabase()) {
+    return [];
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (auth.profile?.role !== "admin") {
+      return [];
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: ticketsData, error: ticketsError } = await supabase
+      .from("support_tickets")
+      .select(
+        `
+        id,
+        contact_id,
+        crm_contacts!inner(full_name, email),
+        subject,
+        description,
+        status,
+        priority,
+        assigned_to_admin,
+        created_by,
+        created_at,
+        updated_at,
+        resolved_at,
+        source
+      `
+      )
+      .order("created_at", { ascending: false });
+
+    if (ticketsError || !ticketsData) {
+      return [];
+    }
+
+    const ticketIds = ticketsData.map((t) => t.id);
+    const userIds = new Set<string>();
+    ticketsData.forEach((t) => {
+      if (t.created_by) userIds.add(t.created_by);
+      if (t.assigned_to_admin) userIds.add(t.assigned_to_admin);
+    });
+
+    const [{ data: repliesData }, { data: usersData }] = await Promise.all([
+      ticketIds.length > 0
+        ? supabase.from("ticket_replies").select("id, ticket_id").in("ticket_id", ticketIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; ticket_id: string }> }),
+      userIds.size > 0
+        ? supabase.from("profiles").select("id, full_name").in("id", Array.from(userIds))
+        : Promise.resolve({ data: [] as Array<{ id: string; full_name: string }> }),
+    ]);
+
+    const userMap = new Map<string, string>();
+    for (const user of usersData ?? []) {
+      userMap.set(user.id, user.full_name);
+    }
+
+    const replyCounts = new Map<string, number>();
+    for (const reply of repliesData ?? []) {
+      const current = replyCounts.get(reply.ticket_id) ?? 0;
+      replyCounts.set(reply.ticket_id, current + 1);
+    }
+
+    return ticketsData.map((ticket) => ({
+      id: ticket.id,
+      contactId: ticket.contact_id,
+      contactName: Array.isArray(ticket.crm_contacts)
+        ? ticket.crm_contacts[0]?.full_name ?? null
+        : (ticket.crm_contacts as unknown as { full_name: string })?.full_name ?? null,
+      contactEmail: Array.isArray(ticket.crm_contacts)
+        ? ticket.crm_contacts[0]?.email ?? null
+        : (ticket.crm_contacts as unknown as { email: string })?.email ?? null,
+      subject: ticket.subject,
+      description: ticket.description,
+      status: ticket.status as "open" | "in_progress" | "on_hold" | "resolved" | "closed",
+      priority: ticket.priority as "low" | "medium" | "high" | "urgent",
+      assignedToAdminId: ticket.assigned_to_admin,
+      assignedToAdminName: ticket.assigned_to_admin ? userMap.get(ticket.assigned_to_admin) ?? null : null,
+      createdById: ticket.created_by,
+      createdByName: ticket.created_by ? userMap.get(ticket.created_by) ?? null : null,
+      createdAt: ticket.created_at,
+      updatedAt: ticket.updated_at,
+      resolvedAt: ticket.resolved_at,
+      source: ticket.source as "dashboard" | "email",
+      replies: [],
+      replyCount: replyCounts.get(ticket.id) ?? 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getClientSupportTickets(): Promise<SupportTicket[]> {
+  if (!canUseSupabase()) {
+    return [];
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (auth.profile?.role !== "client") {
+      return [];
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: ticketsData, error: ticketsError } = await supabase
+      .from("support_tickets")
+      .select(
+        `
+        id,
+        contact_id,
+        crm_contacts!inner(full_name, email),
+        subject,
+        description,
+        status,
+        priority,
+        assigned_to_admin,
+        created_by,
+        created_at,
+        updated_at,
+        resolved_at,
+        source
+      `
+      )
+      .eq("crm_contacts.email", auth.profile?.email ?? "")
+      .order("created_at", { ascending: false });
+
+    if (ticketsError || !ticketsData) {
+      return [];
+    }
+
+    const ticketIds = ticketsData.map((t) => t.id);
+    const userIds = new Set<string>();
+    ticketsData.forEach((t) => {
+      if (t.created_by) userIds.add(t.created_by);
+    });
+
+    const [{ data: repliesData }, { data: usersData }] = await Promise.all([
+      ticketIds.length > 0
+        ? supabase.from("ticket_replies").select("id, ticket_id").in("ticket_id", ticketIds).eq("is_internal_note", false)
+        : Promise.resolve({ data: [] as Array<{ id: string; ticket_id: string }> }),
+      userIds.size > 0
+        ? supabase.from("profiles").select("id, full_name").in("id", Array.from(userIds))
+        : Promise.resolve({ data: [] as Array<{ id: string; full_name: string }> }),
+    ]);
+
+    const userMap = new Map<string, string>();
+    for (const user of usersData ?? []) {
+      userMap.set(user.id, user.full_name);
+    }
+
+    const replyCounts = new Map<string, number>();
+    for (const reply of repliesData ?? []) {
+      const current = replyCounts.get(reply.ticket_id) ?? 0;
+      replyCounts.set(reply.ticket_id, current + 1);
+    }
+
+    return ticketsData.map((ticket) => ({
+      id: ticket.id,
+      contactId: ticket.contact_id,
+      contactName: Array.isArray(ticket.crm_contacts)
+        ? ticket.crm_contacts[0]?.full_name ?? null
+        : (ticket.crm_contacts as unknown as { full_name: string })?.full_name ?? null,
+      contactEmail: Array.isArray(ticket.crm_contacts)
+        ? ticket.crm_contacts[0]?.email ?? null
+        : (ticket.crm_contacts as unknown as { email: string })?.email ?? null,
+      subject: ticket.subject,
+      description: ticket.description,
+      status: ticket.status as "open" | "in_progress" | "on_hold" | "resolved" | "closed",
+      priority: ticket.priority as "low" | "medium" | "high" | "urgent",
+      assignedToAdminId: ticket.assigned_to_admin,
+      assignedToAdminName: ticket.assigned_to_admin ? userMap.get(ticket.assigned_to_admin) ?? null : null,
+      createdById: ticket.created_by,
+      createdByName: ticket.created_by ? userMap.get(ticket.created_by) ?? null : null,
+      createdAt: ticket.created_at,
+      updatedAt: ticket.updated_at,
+      resolvedAt: ticket.resolved_at,
+      source: ticket.source as "dashboard" | "email",
+      replies: [],
+      replyCount: replyCounts.get(ticket.id) ?? 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getSupportTicketById(ticketId: string): Promise<SupportTicket | null> {
+  if (!canUseSupabase()) {
+    return null;
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    const supabase = await createSupabaseServerClient();
+
+    const { data: ticketData, error: ticketError } = await supabase
+      .from("support_tickets")
+      .select(
+        `
+        id,
+        contact_id,
+        crm_contacts!inner(full_name, email),
+        subject,
+        description,
+        status,
+        priority,
+        assigned_to_admin,
+        created_by,
+        created_at,
+        updated_at,
+        resolved_at,
+        source
+      `
+      )
+      .eq("id", ticketId)
+      .single();
+
+    if (ticketError || !ticketData) {
+      return null;
+    }
+
+    // Check authorization
+    if (auth.profile?.role === "client") {
+      const clientContact = ticketData.crm_contacts as unknown as { email: string };
+      if (clientContact.email !== auth.profile?.email) {
+        return null;
+      }
+    }
+
+    const { data: repliesData } = await supabase
+      .from("ticket_replies")
+      .select(
+        `
+        id,
+        ticket_id,
+        user_id,
+        message,
+        is_internal_note,
+        created_at,
+        profiles!inner(full_name)
+      `
+      )
+      .eq("ticket_id", ticketId)
+      .order("created_at", { ascending: true });
+
+    const userIds = new Set<string>();
+    if (ticketData.created_by) userIds.add(ticketData.created_by);
+    if (ticketData.assigned_to_admin) userIds.add(ticketData.assigned_to_admin);
+
+    const { data: usersData } = userIds.size > 0
+      ? await supabase.from("profiles").select("id, full_name").in("id", Array.from(userIds))
+      : { data: [] };
+
+    const userMap = new Map<string, string>();
+    for (const user of usersData ?? []) {
+      userMap.set(user.id, user.full_name);
+    }
+
+    const replies: TicketReply[] = [];
+    for (const reply of repliesData ?? []) {
+      if (auth.profile?.role === "client" && reply.is_internal_note) {
+        continue;
+      }
+      replies.push({
+        id: reply.id,
+        ticketId: reply.ticket_id,
+        userId: reply.user_id,
+        userName: Array.isArray(reply.profiles)
+          ? reply.profiles[0]?.full_name ?? null
+          : (reply.profiles as unknown as { full_name: string })?.full_name ?? null,
+        message: reply.message,
+        isInternalNote: reply.is_internal_note,
+        createdAt: reply.created_at,
+      });
+    }
+
+    return {
+      id: ticketData.id,
+      contactId: ticketData.contact_id,
+      contactName: Array.isArray(ticketData.crm_contacts)
+        ? ticketData.crm_contacts[0]?.full_name ?? null
+        : (ticketData.crm_contacts as unknown as { full_name: string })?.full_name ?? null,
+      contactEmail: Array.isArray(ticketData.crm_contacts)
+        ? ticketData.crm_contacts[0]?.email ?? null
+        : (ticketData.crm_contacts as unknown as { email: string })?.email ?? null,
+      subject: ticketData.subject,
+      description: ticketData.description,
+      status: ticketData.status as "open" | "in_progress" | "on_hold" | "resolved" | "closed",
+      priority: ticketData.priority as "low" | "medium" | "high" | "urgent",
+      assignedToAdminId: ticketData.assigned_to_admin,
+      assignedToAdminName: ticketData.assigned_to_admin ? userMap.get(ticketData.assigned_to_admin) ?? null : null,
+      createdById: ticketData.created_by,
+      createdByName: ticketData.created_by ? userMap.get(ticketData.created_by) ?? null : null,
+      createdAt: ticketData.created_at,
+      updatedAt: ticketData.updated_at,
+      resolvedAt: ticketData.resolved_at,
+      source: ticketData.source as "dashboard" | "email",
+      replies,
+      replyCount: replies.length,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getSupportEmailSettings(): Promise<SupportEmailSettings | null> {
+  if (!canUseSupabase()) {
+    return null;
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (auth.profile?.role !== "admin") {
+      return null;
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("support_email_settings")
+      .select("id, support_email, forward_to_admin_email, auto_response_subject, auto_response_body, enabled")
+      .single();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return {
+      id: data.id,
+      supportEmail: data.support_email,
+      forwardToAdminEmail: data.forward_to_admin_email,
+      autoResponseSubject: data.auto_response_subject,
+      autoResponseBody: data.auto_response_body,
+      enabled: data.enabled,
+    };
+  } catch {
+    return null;
   }
 }
