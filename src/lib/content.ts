@@ -888,3 +888,210 @@ export async function getClientInvoices(): Promise<ClientInvoice[]> {
     return [];
   }
 }
+
+export async function getClientContactById(clientId: string): Promise<AdminContact | null> {
+  if (!canUseSupabase()) {
+    return null;
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (auth.profile?.role !== "admin") {
+      return null;
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: contactData, error: contactError } = await supabase
+      .from("crm_contacts")
+      .select("id, full_name, email, company_name, source, pipeline_stage, status, notes")
+      .eq("id", clientId)
+      .single();
+
+    if (contactError || !contactData) {
+      return null;
+    }
+
+    const { data: agreementData } = await supabase
+      .from("service_agreements")
+      .select("billing_frequency, monthly_amount, included_services")
+      .eq("contact_id", clientId)
+      .single();
+
+    const { data: activitiesData } = await supabase
+      .from("crm_activities")
+      .select("id")
+      .eq("contact_id", clientId);
+
+    const { data: tasksData } = await supabase
+      .from("crm_tasks")
+      .select("id, status")
+      .eq("contact_id", clientId);
+
+    return {
+      id: contactData.id,
+      fullName: contactData.full_name,
+      email: contactData.email,
+      companyName: contactData.company_name,
+      source: contactData.source,
+      pipelineStage: contactData.pipeline_stage,
+      status: contactData.status,
+      notes: contactData.notes,
+      agreement: agreementData
+        ? {
+            billingFrequency: agreementData.billing_frequency,
+            monthlyAmount: agreementData.monthly_amount,
+            includedServices: agreementData.included_services,
+          }
+        : null,
+      activityCount: activitiesData?.length ?? 0,
+      taskCount: tasksData?.length ?? 0,
+      openTaskCount: tasksData?.filter((t) => t.status !== "completed").length ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getClientEstimatesByContactId(contactEmail: string): Promise<ClientEstimate[]> {
+  if (!canUseSupabase()) {
+    return [];
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (auth.profile?.role !== "admin") {
+      return [];
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: estimatesData, error: estimatesError } = await supabase
+      .from("estimates")
+      .select(
+        `
+        id,
+        estimate_number,
+        title,
+        crm_contacts!inner(full_name, email),
+        status,
+        subtotal_sell,
+        tax_total_sell,
+        total_sell,
+        finalized_at
+      `
+      )
+      .eq("crm_contacts.email", contactEmail)
+      .order("created_at", { ascending: false });
+
+    if (estimatesError || !estimatesData) {
+      return [];
+    }
+
+    const estimateIds = estimatesData.map((e) => e.id);
+
+    const { data: lineItemsData } = await supabase
+      .from("estimate_line_items")
+      .select("id, estimate_id, description, quantity, unit_sell_price, unit_cost_price, markup_pct")
+      .in("estimate_id", estimateIds);
+
+    const lineItemsMap = new Map<string, EstimateLineItem[]>();
+    for (const item of lineItemsData ?? []) {
+      const current = lineItemsMap.get(item.estimate_id) ?? [];
+      current.push({
+        id: item.id,
+        description: item.description,
+        quantity: item.quantity,
+        unitSellPrice: Number(item.unit_sell_price),
+        unitCostPrice: Number(item.unit_cost_price),
+        markupPct: Number(item.markup_pct),
+        lineTotalSell: Number(item.quantity) * Number(item.unit_sell_price),
+        lineTotalCost: Number(item.quantity) * Number(item.unit_cost_price),
+      });
+      lineItemsMap.set(item.estimate_id, current);
+    }
+
+    return estimatesData.map((estimate) => ({
+      id: estimate.id,
+      estimateNumber: estimate.estimate_number,
+      title: estimate.title,
+      contactName: Array.isArray(estimate.crm_contacts)
+        ? estimate.crm_contacts[0]?.full_name ?? null
+        : (estimate.crm_contacts as unknown as { full_name: string })?.full_name ?? null,
+      status: estimate.status,
+      totalSell: Number(estimate.total_sell),
+      finalizedAt: estimate.finalized_at,
+      lineItems: lineItemsMap.get(estimate.id) ?? [],
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getClientInvoicesByContactId(contactEmail: string): Promise<ClientInvoice[]> {
+  if (!canUseSupabase()) {
+    return [];
+  }
+
+  try {
+    const auth = await getCurrentAuth();
+    if (auth.profile?.role !== "admin") {
+      return [];
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: invoiceData, error: invoiceError } = await supabase
+      .from("invoices")
+      .select("id, invoice_number, title, notes, status, subtotal, tax_total, total, amount_paid, balance_due, payment_method, issued_at, due_date, sent_at, paid_at, estimate_id, contact_id, crm_contacts!inner(id, full_name, email)")
+      .eq("crm_contacts.email", contactEmail)
+      .neq("status", "draft")
+      .order("issued_at", { ascending: false });
+
+    if (invoiceError || !invoiceData) {
+      return [];
+    }
+
+    const invoiceIds = invoiceData.map((invoice) => invoice.id);
+    const estimateIds = invoiceData.map((inv) => inv.estimate_id).filter(Boolean) as string[];
+
+    const [paymentsByInvoice, estimateData] = await Promise.all([
+      getInvoicePayments(supabase, invoiceIds),
+      estimateIds.length > 0
+        ? supabase.from("estimates").select("id, estimate_number").in("id", estimateIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; estimate_number: string }>, error: null }),
+    ]);
+
+    const estimateMap = new Map<string, string>();
+    for (const estimate of estimateData.data ?? []) {
+      estimateMap.set(estimate.id, estimate.estimate_number);
+    }
+
+    return invoiceData.map((invoice) => ({
+      id: invoice.id,
+      invoiceNumber: invoice.invoice_number,
+      contactId: invoice.contact_id,
+      contactName: Array.isArray(invoice.crm_contacts)
+        ? invoice.crm_contacts[0]?.full_name ?? null
+        : (invoice.crm_contacts as unknown as { full_name: string })?.full_name ?? null,
+      contactEmail: Array.isArray(invoice.crm_contacts)
+        ? invoice.crm_contacts[0]?.email ?? null
+        : (invoice.crm_contacts as unknown as { email: string })?.email ?? null,
+      estimateId: invoice.estimate_id,
+      estimateNumber: invoice.estimate_id ? estimateMap.get(invoice.estimate_id) ?? null : null,
+      title: invoice.title,
+      notes: invoice.notes,
+      status: invoice.status,
+      subtotal: Number(invoice.subtotal ?? 0),
+      taxTotal: Number(invoice.tax_total ?? 0),
+      total: Number(invoice.total ?? 0),
+      amountPaid: Number(invoice.amount_paid ?? 0),
+      balanceDue: Number(invoice.balance_due ?? 0),
+      paymentMethod: invoice.payment_method,
+      issuedAt: invoice.issued_at,
+      dueDate: invoice.due_date,
+      sentAt: invoice.sent_at,
+      paidAt: invoice.paid_at,
+      payments: paymentsByInvoice.get(invoice.id) ?? [],
+    }));
+  } catch {
+    return [];
+  }
+}
