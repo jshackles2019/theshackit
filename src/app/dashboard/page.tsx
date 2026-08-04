@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { seedContacts, seedEstimates } from "@/lib/mock-data";
 import { getCurrentAuth } from "@/lib/auth";
+import { getDashboardStats } from "@/lib/content";
 
 export default async function DashboardPage() {
-  const auth = await getCurrentAuth();
+  const [auth, stats] = await Promise.all([getCurrentAuth(), getDashboardStats()]);
 
   return (
     <DashboardShell
@@ -20,13 +20,13 @@ export default async function DashboardPage() {
         </article>
         <article className="rounded-3xl bg-white p-6 text-slate-950 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">Contacts</p>
-          <p className="mt-3 text-2xl font-semibold">{seedContacts.length}</p>
-          <p className="mt-2 text-sm text-slate-600">Leads, prospects, and clients in the seeded CRM preview.</p>
+          <p className="mt-3 text-2xl font-semibold">{stats.contacts}</p>
+          <p className="mt-2 text-sm text-slate-600">{stats.isAdmin ? "Live CRM contacts in Supabase." : "Admin-only CRM data will appear here after sign-in."}</p>
         </article>
         <article className="rounded-3xl bg-white p-6 text-slate-950 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">Estimates</p>
-          <p className="mt-3 text-2xl font-semibold">{seedEstimates.length}</p>
-          <p className="mt-2 text-sm text-slate-600">Draft and finalized estimates are designed to scale in Supabase.</p>
+          <p className="mt-3 text-2xl font-semibold">{stats.estimates}</p>
+          <p className="mt-2 text-sm text-slate-600">{stats.isAdmin ? "Live estimates stored in Supabase." : "Estimate visibility depends on your access level."}</p>
         </article>
       </div>
 

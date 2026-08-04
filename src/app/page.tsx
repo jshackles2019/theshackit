@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Container } from "@/components/container";
 import { SectionHeading } from "@/components/section-heading";
-import { aboutSummary, company, hero, hardwareOfferings, pricingApproach, services, whyChooseUs } from "@/lib/site";
+import { getPublicSiteContent } from "@/lib/content";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const content = await getPublicSiteContent();
   return (
     <>
       <section className="bg-slate-950 text-white">
@@ -11,10 +12,10 @@ export default function HomePage() {
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-sky-300">Seguin • New Braunfels • San Marcos • Remote</p>
             <h1 className="mt-4 max-w-3xl text-5xl font-semibold tracking-tight text-white sm:text-6xl">
-              {hero.headline}
+              {content.heroHeadline}
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">{hero.subheadline}</p>
-            <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">{company.tone}</p>
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">{content.heroSubheadline}</p>
+            <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">{content.companyTone}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/book" className="w-full rounded-full bg-sky-500 px-6 py-4 text-center text-base font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-400 sm:w-auto sm:py-3 sm:text-sm">
                 Book a consultation
@@ -73,14 +74,14 @@ export default function HomePage() {
         <SectionHeading
           eyebrow="About"
           title="A local IT partner that grows with your business"
-          description={aboutSummary}
+          description={content.aboutSummary}
         />
       </Container>
 
       <Container className="py-6">
         <SectionHeading eyebrow="Services" title="What we offer" />
         <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {services.map((service) => (
+          {content.services.map((service) => (
             <article key={service.name} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-xl font-semibold text-slate-950">{service.name}</h3>
               <p className="mt-3 text-sm leading-6 text-slate-600">{service.description}</p>
@@ -93,7 +94,7 @@ export default function HomePage() {
       <Container className="py-20">
         <SectionHeading eyebrow="Why choose us" title="Why clients stay with The Shack" />
         <div className="mt-10 grid gap-6 lg:grid-cols-3">
-          {whyChooseUs.map((point, index) => (
+          {content.whyChooseUs.map((point, index) => (
             <article key={point} className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
               <p className="text-sm font-semibold text-sky-700">0{index + 1}</p>
               <p className="mt-3 text-base leading-7 text-slate-700">{point}</p>
@@ -106,15 +107,15 @@ export default function HomePage() {
         <article className="rounded-3xl bg-sky-50 p-8">
           <h2 className="text-2xl font-semibold text-slate-950">Hardware offerings</h2>
           <ul className="mt-5 space-y-3 text-sm leading-6 text-slate-700">
-            {hardwareOfferings.map((item) => (
-              <li key={item}>• {item}</li>
+            {content.hardwareOfferings.map((item) => (
+              <li key={item.name}>• {item.name}</li>
             ))}
           </ul>
         </article>
         <article className="rounded-3xl bg-slate-950 p-8 text-white">
           <h2 className="text-2xl font-semibold">Pricing approach</h2>
           <div className="mt-5 space-y-3 text-sm leading-6 text-slate-300">
-            {pricingApproach.map((item) => (
+            {content.pricingApproach.map((item) => (
               <p key={item.label}>
                 <span className="font-semibold text-white">{item.label}:</span> {item.value}
               </p>

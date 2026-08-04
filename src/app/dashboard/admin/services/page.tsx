@@ -1,13 +1,15 @@
 import { saveHardwareAction, saveServiceAction, saveSiteSettingAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StatusBanner } from "@/components/status-banner";
-import { hardwareOfferings, services } from "@/lib/site";
+import { getAdminCatalogContent } from "@/lib/content";
 
-export default function AdminServicesPage({
+export default async function AdminServicesPage({
   searchParams,
 }: {
   searchParams?: { success?: string; error?: string };
 }) {
+  const catalog = await getAdminCatalogContent();
+
   return (
     <DashboardShell
       title="Service and website management"
@@ -74,24 +76,26 @@ export default function AdminServicesPage({
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <article className="rounded-3xl bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold">Seeded services</h2>
+          <h2 className="text-lg font-semibold">Saved services</h2>
           <ul className="mt-4 space-y-3 text-sm text-slate-600">
-            {services.map((service) => (
+            {catalog.services.length > 0 ? catalog.services.map((service) => (
               <li key={service.name} className="rounded-2xl bg-slate-50 p-4">
                 <div className="font-semibold text-slate-950">{service.name}</div>
                 <div>{service.description}</div>
+                {service.pricingModel ? <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">{service.pricingModel}</div> : null}
               </li>
-            ))}
+            )) : <li className="rounded-2xl bg-slate-50 p-4">No services saved yet.</li>}
           </ul>
         </article>
         <article className="rounded-3xl bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Hardware catalog preview</h2>
           <ul className="mt-4 space-y-3 text-sm text-slate-600">
-            {hardwareOfferings.map((item) => (
-              <li key={item} className="rounded-2xl bg-slate-50 p-4">
-                {item}
+            {catalog.hardware.length > 0 ? catalog.hardware.map((item) => (
+              <li key={item.name} className="rounded-2xl bg-slate-50 p-4">
+                <div className="font-semibold text-slate-950">{item.name}</div>
+                <div>{item.description}</div>
               </li>
-            ))}
+            )) : <li className="rounded-2xl bg-slate-50 p-4">No hardware saved yet.</li>}
           </ul>
         </article>
       </div>
