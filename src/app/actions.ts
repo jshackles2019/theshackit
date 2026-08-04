@@ -1405,7 +1405,7 @@ export async function loadClientSupportTickets() {
     id: ticket.id,
     contactId: ticket.contact_id,
     contactName: auth.profile?.full_name || null,
-    contactEmail: auth.user.email,
+    contactEmail: auth.user.email ?? null,
     subject: ticket.subject,
     description: ticket.description,
     status: ticket.status,

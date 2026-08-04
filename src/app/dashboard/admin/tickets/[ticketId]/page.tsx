@@ -2,20 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { loadSupportTicketById } from "@/app/actions";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { ArrowLeft, Send } from "lucide-react";
-import { updateTicketStatusAction, addTicketReplyAction } from "@/app/actions";
+import { loadSupportTicketById, updateTicketStatusAction, addTicketReplyAction } from "@/app/actions";
 
 type TicketStatus = "open" | "in_progress" | "on_hold" | "resolved" | "closed";
 type TicketPriority = "low" | "medium" | "high" | "urgent";
@@ -40,6 +27,12 @@ type SupportTicket = {
   replies: any[];
   replyCount: number;
 };
+
+const buttonClassName =
+  "inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60";
+const inputClassName =
+  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-500 focus:outline-none";
+const labelClassName = "block text-sm font-medium text-slate-700";
 
 export default function TicketDetailPage({ params }: { params: { ticketId: string } }) {
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
@@ -125,204 +118,190 @@ export default function TicketDetailPage({ params }: { params: { ticketId: strin
   const priorityColor = (p: TicketPriority) => {
     switch (p) {
       case "urgent":
-        return "destructive";
+        return "bg-red-100 text-red-800";
       case "high":
-        return "secondary";
+        return "bg-orange-100 text-orange-800";
       case "medium":
-        return "default";
+        return "bg-blue-100 text-blue-800";
       case "low":
-        return "outline";
+        return "bg-slate-100 text-slate-700";
     }
   };
 
   if (loading) {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">Loading ticket...</p>
+      <div className="py-12 text-center">
+        <p className="text-slate-500">Loading ticket...</p>
       </div>
     );
   }
 
   if (!ticket) {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">Ticket not found</p>
+      <div className="py-12 text-center">
+        <p className="text-slate-500">Ticket not found</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <Link href="/dashboard/admin/tickets" className="inline-flex items-center gap-2 text-sm hover:underline">
-        <ArrowLeft className="h-4 w-4" />
+      <Link href="/dashboard/admin/tickets" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:underline">
+        <span aria-hidden="true">←</span>
         Back to Tickets
       </Link>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="border rounded-lg p-6">
-            <h1 className="text-2xl font-bold mb-2">{ticket.subject}</h1>
-            <p className="text-muted-foreground mb-4">
+        <div className="space-y-6 lg:col-span-2">
+          <div className="rounded-lg border border-slate-200 p-6">
+            <h1 className="mb-2 text-2xl font-bold">{ticket.subject}</h1>
+            <p className="mb-4 text-slate-500">
               {ticket.contactName} ({ticket.contactEmail})
             </p>
 
-            <div className="prose prose-sm max-w-none mb-6">
-              <p className="whitespace-pre-wrap">{ticket.description}</p>
+            <div className="mb-6 rounded-md bg-slate-50 p-4">
+              <p className="whitespace-pre-wrap text-sm text-slate-700">{ticket.description}</p>
             </div>
 
-            <div className="flex items-center gap-2 mb-6">
-              <Badge variant={priorityColor(ticket.priority)}>
+            <div className="mb-6 flex items-center gap-2">
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${priorityColor(ticket.priority)}`}>
                 {ticket.priority.toUpperCase()}
-              </Badge>
-              <div className={`px-2 py-1 rounded text-xs font-medium ${statusColor(ticket.status)}`}>
+              </span>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusColor(ticket.status)}`}>
                 {ticket.status.replace("_", " ").toUpperCase()}
-              </div>
+              </span>
             </div>
 
-            <div className="text-xs text-muted-foreground space-y-1">
+            <div className="space-y-1 text-xs text-slate-500">
               <p>Created: {new Date(ticket.createdAt).toLocaleString()}</p>
-              {ticket.resolvedAt && (
-                <p>Resolved: {new Date(ticket.resolvedAt).toLocaleString()}</p>
-              )}
+              {ticket.resolvedAt && <p>Resolved: {new Date(ticket.resolvedAt).toLocaleString()}</p>}
             </div>
           </div>
 
-          <div className="border rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">Replies ({ticket.replyCount})</h2>
+          <div className="rounded-lg border border-slate-200 p-6">
+            <h2 className="mb-4 text-lg font-semibold">Replies ({ticket.replyCount})</h2>
 
-            <div className="space-y-4 mb-6">
+            <div className="mb-6 space-y-4">
               {ticket.replies.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No replies yet</p>
+                <p className="text-sm text-slate-500">No replies yet</p>
               ) : (
                 ticket.replies.map((reply) => (
                   <div
                     key={reply.id}
-                    className={`border rounded p-4 ${
-                      reply.isInternalNote ? "bg-yellow-50 border-yellow-200" : ""
-                    }`}
+                    className={`rounded border border-slate-200 p-4 ${reply.isInternalNote ? "bg-yellow-50" : "bg-white"}`}
                   >
-                    <div className="flex items-start justify-between mb-2">
+                    <div className="mb-2 flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-medium">{reply.userName || "Unknown User"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(reply.createdAt).toLocaleString()}
-                        </p>
+                        <p className="font-medium text-slate-900">{reply.userName || "Unknown User"}</p>
+                        <p className="text-xs text-slate-500">{new Date(reply.createdAt).toLocaleString()}</p>
                       </div>
                       {reply.isInternalNote && (
-                        <Badge variant="secondary" className="text-xs">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                           Internal Note
-                        </Badge>
+                        </span>
                       )}
                     </div>
-                    <p className="text-sm whitespace-pre-wrap">{reply.message}</p>
+                    <p className="whitespace-pre-wrap text-sm text-slate-700">{reply.message}</p>
                   </div>
                 ))
               )}
             </div>
 
-            <div className="border-t pt-6 space-y-4">
+            <div className="space-y-4 border-t border-slate-200 pt-6">
               <div>
-                <Label htmlFor="reply-message" className="text-base font-semibold mb-2 block">
+                <label htmlFor="reply-message" className={`${labelClassName} mb-2 block`}>
                   Add Reply
-                </Label>
-                <Textarea
+                </label>
+                <textarea
                   id="reply-message"
                   placeholder="Write a reply or internal note..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  className="min-h-24"
+                  className={`${inputClassName} min-h-24`}
                   disabled={submitting}
                 />
               </div>
 
               <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
                   <input
                     type="checkbox"
                     checked={isInternalNote}
                     onChange={(e) => setIsInternalNote(e.target.checked)}
-                    className="rounded border-gray-300"
+                    className="rounded border-slate-300"
                   />
-                  <span className="text-sm">Internal note (not visible to client)</span>
+                  <span>Internal note (not visible to client)</span>
                 </label>
               </div>
 
-              <Button
-                onClick={handleAddReply}
-                disabled={!message.trim() || submitting}
-                className="w-full gap-2"
-              >
-                <Send className="h-4 w-4" />
+              <button type="button" onClick={handleAddReply} disabled={!message.trim() || submitting} className={`${buttonClassName} w-full gap-2`}>
+                <span aria-hidden="true">↩</span>
                 {submitting ? "Adding..." : "Add Reply"}
-              </Button>
+              </button>
             </div>
           </div>
         </div>
 
         <div className="space-y-6">
-          <div className="border rounded-lg p-6">
-            <h3 className="font-semibold mb-4">Update Ticket</h3>
+          <div className="rounded-lg border border-slate-200 p-6">
+            <h3 className="mb-4 font-semibold">Update Ticket</h3>
 
             <div className="space-y-4">
               <div>
-                <Label htmlFor="status" className="text-sm mb-2 block">
+                <label htmlFor="status" className={`${labelClassName} mb-2 block`}>
                   Status
-                </Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as TicketStatus)}>
-                  <SelectTrigger id="status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="on_hold">On Hold</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
+                </label>
+                <select
+                  id="status"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as TicketStatus)}
+                  className={inputClassName}
+                >
+                  <option value="open">Open</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="on_hold">On Hold</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed</option>
+                </select>
               </div>
 
               <div>
-                <Label htmlFor="priority" className="text-sm mb-2 block">
+                <label htmlFor="priority" className={`${labelClassName} mb-2 block`}>
                   Priority
-                </Label>
-                <Select value={priority} onValueChange={(v) => setPriority(v as TicketPriority)}>
-                  <SelectTrigger id="priority">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
+                </label>
+                <select
+                  id="priority"
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as TicketPriority)}
+                  className={inputClassName}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
               </div>
 
-              <Button
-                onClick={handleUpdateStatus}
-                disabled={submitting}
-                className="w-full"
-              >
+              <button type="button" onClick={handleUpdateStatus} disabled={submitting} className={`${buttonClassName} w-full`}>
                 {submitting ? "Saving..." : "Save Changes"}
-              </Button>
+              </button>
             </div>
           </div>
 
-          <div className="border rounded-lg p-6">
-            <h3 className="font-semibold mb-2">Ticket Info</h3>
+          <div className="rounded-lg border border-slate-200 p-6">
+            <h3 className="mb-2 font-semibold">Ticket Info</h3>
             <div className="space-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground">ID</p>
-                <p className="font-mono text-xs break-all">{ticket.id}</p>
+                <p className="text-slate-500">ID</p>
+                <p className="break-all font-mono text-xs">{ticket.id}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Source</p>
+                <p className="text-slate-500">Source</p>
                 <p className="capitalize">{ticket.source}</p>
               </div>
               {ticket.assignedToAdminName && (
                 <div>
-                  <p className="text-muted-foreground">Assigned To</p>
+                  <p className="text-slate-500">Assigned To</p>
                   <p>{ticket.assignedToAdminName}</p>
                 </div>
               )}
