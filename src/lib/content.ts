@@ -170,6 +170,52 @@ function formatCurrency(value: number | null) {
   return `$${value.toFixed(2)}`;
 }
 
+function parseListSetting(value: string | undefined, fallback: string[]) {
+  if (!value) return fallback;
+  const items = value
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return items.length > 0 ? items : fallback;
+}
+
+function parsePricingApproachSetting(value: string | undefined, fallback: Array<{ label: string; value: string }>) {
+  if (!value) return fallback;
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (Array.isArray(parsed)) {
+      const items = parsed
+        .filter((item): item is { label?: unknown; value?: unknown } => Boolean(item && typeof item === "object"))
+        .map((item) => ({
+          label: typeof item.label === "string" ? item.label.trim() : "",
+          value: typeof item.value === "string" ? item.value.trim() : "",
+        }))
+        .filter((item) => item.label && item.value);
+      if (items.length > 0) {
+        return items;
+      }
+    }
+  } catch {
+    // Fall through to line parsing.
+  }
+
+  const items = value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const [label, ...rest] = item.split(":");
+      return {
+        label: label?.trim() ?? "",
+        value: rest.join(":").trim(),
+      };
+    })
+    .filter((item) => item.label && item.value);
+
+  return items.length > 0 ? items : fallback;
+}
+
 async function getSiteSettings() {
   if (!canUseSupabase()) {
     return {} as Record<string, string>;
@@ -352,11 +398,11 @@ export async function getPublicSiteContent(): Promise<PublicSiteContent> {
     heroSubheadline: settings.hero_subheadline ?? fallbackHero.subheadline,
     aboutSummary: settings.about_summary ?? fallbackAboutSummary,
     companyTone: settings.company_tone ?? fallbackCompany.tone,
-    whyChooseUs: fallbackWhyChooseUs,
+    whyChooseUs: parseListSetting(settings.why_choose_us, fallbackWhyChooseUs),
     services: serviceCards,
-    optionalServices: fallbackOptionalServices,
+    optionalServices: parseListSetting(settings.optional_services, fallbackOptionalServices),
     hardwareOfferings: hardwareCards,
-    pricingApproach: fallbackPricingApproach,
+    pricingApproach: parsePricingApproachSetting(settings.pricing_approach, fallbackPricingApproach),
   };
 }
 

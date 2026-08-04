@@ -157,6 +157,50 @@ export default async function AdminServicesPage({
           </div>
           <button className="mt-4 rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">Save copy</button>
         </form>
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <form action={saveSiteSettingAction} className="rounded-2xl bg-white p-4 shadow-sm">
+            <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+            <input type="hidden" name="key" value="why_choose_us" />
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Why choose us
+              <textarea
+                name="value"
+                rows={5}
+                className="rounded-2xl border border-slate-300 px-4 py-3"
+                placeholder={"One point per line\nKeep it client-friendly"}
+              />
+            </label>
+            <button className="mt-3 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">Save bullets</button>
+          </form>
+          <form action={saveSiteSettingAction} className="rounded-2xl bg-white p-4 shadow-sm">
+            <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+            <input type="hidden" name="key" value="optional_services" />
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Optional services
+              <textarea
+                name="value"
+                rows={5}
+                className="rounded-2xl border border-slate-300 px-4 py-3"
+                placeholder={"One service per line\nThese appear on the public services page"}
+              />
+            </label>
+            <button className="mt-3 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">Save list</button>
+          </form>
+          <form action={saveSiteSettingAction} className="rounded-2xl bg-white p-4 shadow-sm">
+            <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+            <input type="hidden" name="key" value="pricing_approach" />
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Pricing approach
+              <textarea
+                name="value"
+                rows={5}
+                className="rounded-2xl border border-slate-300 px-4 py-3"
+                placeholder={"Services: Fixed / Hourly / Tiered\nHardware: Quote-based\nClient visibility: Sell price only"}
+              />
+            </label>
+            <button className="mt-3 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">Save approach</button>
+          </form>
+        </div>
       </section>
     </DashboardShell>
   );
