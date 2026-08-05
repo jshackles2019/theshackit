@@ -78,6 +78,17 @@ export default async function AdminCrmPage({
               </select>
             </label>
             <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Active
+              <select
+                name="active"
+                defaultValue={editingContact ? (editingContact.active ? "active" : "inactive") : "active"}
+                className="rounded-2xl border border-slate-300 px-4 py-3"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
               Notes
               <textarea name="notes" rows={4} defaultValue={editingContact?.notes ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
@@ -106,6 +117,11 @@ export default async function AdminCrmPage({
               <textarea name="includedServices" rows={3} defaultValue={editingContact?.agreement?.includedServices ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Help desk, patching, workstation support" />
             </label>
             <button className="rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">{editingContact ? "Update contact" : "Save contact"}</button>
+            {editingContact ? (
+              <p className="text-xs text-slate-500">
+                This form edits the selected contact. Use the delete button on the contact card to remove it.
+              </p>
+            ) : null}
           </div>
         </form>
 
@@ -285,6 +301,9 @@ export default async function AdminCrmPage({
                 </span>
                 <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
                   {contact.activityCount} activity item(s) • {contact.openTaskCount} open task(s)
+                </span>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${contact.active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>
+                  {contact.active ? "Active" : "Inactive"}
                 </span>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">

@@ -28,6 +28,7 @@ const consultSchema = z.object({
 });
 
 const serviceSchema = z.object({
+  serviceId: z.string().trim().min(1).optional(),
   name: z.string().trim().min(2),
   description: z.string().trim().optional(),
   pricingModel: z.string().trim().optional(),
@@ -39,6 +40,7 @@ const serviceSchema = z.object({
 });
 
 const hardwareSchema = z.object({
+  hardwareId: z.string().trim().min(1).optional(),
   name: z.string().trim().min(2),
   description: z.string().trim().optional(),
   internalCost: z.coerce.number().optional(),
@@ -55,6 +57,7 @@ const contactSchema = z.object({
   companyName: z.string().trim().optional(),
   pipelineStage: z.string().trim().optional(),
   status: z.string().trim().optional(),
+  active: z.string().optional(),
   notes: z.string().trim().optional(),
   billingFrequency: z.string().trim().optional(),
   monthlyAmount: z.coerce.number().optional(),
@@ -126,6 +129,11 @@ const estimateUpdateSchema = z.object({
   notes: z.string().trim().optional(),
   status: z.string().trim().optional(),
   visibleToClient: z.string().optional(),
+  redirectTo: z.string().optional(),
+});
+
+const estimateDeleteSchema = z.object({
+  estimateId: z.string().trim().min(1),
   redirectTo: z.string().optional(),
 });
 
@@ -552,6 +560,7 @@ export async function requestConsultationAction(formData: FormData) {
 export async function saveServiceAction(formData: FormData) {
   const redirectTo = redirectTarget(formData, "/dashboard/admin/services");
   const parsed = serviceSchema.safeParse({
+    serviceId: formData.get("serviceId"),
     name: formData.get("name"),
     description: formData.get("description"),
     pricingModel: formData.get("pricingModel"),
@@ -567,30 +576,33 @@ export async function saveServiceAction(formData: FormData) {
   }
 
   const supabase = await requireAdminOrJump(redirectTo);
-  const { error } = await supabase.from("services").upsert(
-    {
-      name: parsed.data.name,
-      description: parsed.data.description ?? null,
-      pricing_model: parsed.data.pricingModel ?? null,
-      base_price: parsed.data.basePrice ?? null,
-      internal_cost: parsed.data.internalCost ?? null,
-      markup_pct: parsed.data.markupPct ?? null,
-      active: true,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "name" },
-  );
+  const payload = {
+    name: parsed.data.name,
+    description: parsed.data.description ?? null,
+    pricing_model: parsed.data.pricingModel ?? null,
+    base_price: parsed.data.basePrice ?? null,
+    internal_cost: parsed.data.internalCost ?? null,
+    markup_pct: parsed.data.markupPct ?? null,
+    active: parsed.data.active !== "inactive",
+    updated_at: new Date().toISOString(),
+  };
+
+  const query = parsed.data.serviceId
+    ? supabase.from("services").update(payload).eq("id", parsed.data.serviceId)
+    : supabase.from("services").insert(payload);
+  const { error } = await query;
 
   if (error) {
     jump(redirectTo, "error", error.message);
   }
 
-  jump(redirectTo, "success", "Service saved.");
+  jump(redirectTo, "success", parsed.data.serviceId ? "Service updated." : "Service saved.");
 }
 
 export async function saveHardwareAction(formData: FormData) {
   const redirectTo = redirectTarget(formData, "/dashboard/admin/services");
   const parsed = hardwareSchema.safeParse({
+    hardwareId: formData.get("hardwareId"),
     name: formData.get("name"),
     description: formData.get("description"),
     internalCost: formData.get("internalCost"),
@@ -605,24 +617,26 @@ export async function saveHardwareAction(formData: FormData) {
   }
 
   const supabase = await requireAdminOrJump(redirectTo);
-  const { error } = await supabase.from("hardware_catalog").upsert(
-    {
-      name: parsed.data.name,
-      description: parsed.data.description ?? null,
-      internal_cost: parsed.data.internalCost ?? null,
-      sell_price: parsed.data.sellPrice ?? null,
-      markup_pct: parsed.data.markupPct ?? null,
-      active: true,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "name" },
-  );
+  const payload = {
+    name: parsed.data.name,
+    description: parsed.data.description ?? null,
+    internal_cost: parsed.data.internalCost ?? null,
+    sell_price: parsed.data.sellPrice ?? null,
+    markup_pct: parsed.data.markupPct ?? null,
+    active: parsed.data.active !== "inactive",
+    updated_at: new Date().toISOString(),
+  };
+
+  const query = parsed.data.hardwareId
+    ? supabase.from("hardware_catalog").update(payload).eq("id", parsed.data.hardwareId)
+    : supabase.from("hardware_catalog").insert(payload);
+  const { error } = await query;
 
   if (error) {
     jump(redirectTo, "error", error.message);
   }
 
-  jump(redirectTo, "success", "Hardware saved.");
+  jump(redirectTo, "success", parsed.data.hardwareId ? "Hardware updated." : "Hardware saved.");
 }
 
 export async function saveContactAction(formData: FormData) {
@@ -634,6 +648,7 @@ export async function saveContactAction(formData: FormData) {
     companyName: formData.get("companyName"),
     pipelineStage: formData.get("pipelineStage"),
     status: formData.get("status"),
+    active: formData.get("active"),
     notes: formData.get("notes"),
     billingFrequency: formData.get("billingFrequency"),
     monthlyAmount: formData.get("monthlyAmount"),
@@ -660,6 +675,7 @@ export async function saveContactAction(formData: FormData) {
         company_name: parsed.data.companyName ?? null,
         pipeline_stage: parsed.data.pipelineStage ?? "Lead",
         status: parsed.data.status ?? "lead",
+        active: parsed.data.active !== "inactive",
         notes: parsed.data.notes ?? null,
         updated_at: new Date().toISOString(),
       })
@@ -680,6 +696,7 @@ export async function saveContactAction(formData: FormData) {
         company_name: parsed.data.companyName ?? null,
         pipeline_stage: parsed.data.pipelineStage ?? "Lead",
         status: parsed.data.status ?? "lead",
+        active: parsed.data.active !== "inactive",
         source: "admin",
         notes: parsed.data.notes ?? null,
         updated_at: new Date().toISOString(),
@@ -725,6 +742,42 @@ export async function deleteContactAction(formData: FormData) {
   }
 
   jump(redirectTo, "success", "Contact deleted.");
+}
+
+export async function deleteServiceAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/services");
+  const serviceId = formData.get("serviceId")?.toString().trim();
+
+  if (!serviceId) {
+    jump(redirectTo, "error", "No service selected for deletion.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const { error } = await supabase.from("services").delete().eq("id", serviceId);
+
+  if (error) {
+    jump(redirectTo, "error", error.message);
+  }
+
+  jump(redirectTo, "success", "Service deleted.");
+}
+
+export async function deleteHardwareAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/services");
+  const hardwareId = formData.get("hardwareId")?.toString().trim();
+
+  if (!hardwareId) {
+    jump(redirectTo, "error", "No hardware selected for deletion.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const { error } = await supabase.from("hardware_catalog").delete().eq("id", hardwareId);
+
+  if (error) {
+    jump(redirectTo, "error", error.message);
+  }
+
+  jump(redirectTo, "success", "Hardware deleted.");
 }
 
 export async function addCrmActivityAction(formData: FormData) {
@@ -943,6 +996,27 @@ export async function updateEstimateAction(formData: FormData) {
   }
 
   jump(redirectTo, "success", "Estimate updated.");
+}
+
+export async function deleteEstimateAction(formData: FormData) {
+  const redirectTo = redirectTarget(formData, "/dashboard/admin/estimates");
+  const parsed = estimateDeleteSchema.safeParse({
+    estimateId: formData.get("estimateId"),
+    redirectTo,
+  });
+
+  if (!parsed.success) {
+    jump(redirectTo, "error", "Enter an estimate ID.");
+  }
+
+  const supabase = await requireAdminOrJump(redirectTo);
+  const { error } = await supabase.from("estimates").delete().eq("id", parsed.data.estimateId);
+
+  if (error) {
+    jump(redirectTo, "error", error.message);
+  }
+
+  jump(redirectTo, "success", "Estimate deleted.");
 }
 
 export async function updateEstimateLineItemAction(formData: FormData) {

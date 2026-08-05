@@ -1,4 +1,4 @@
-import { addEstimateLineItemAction, createEstimateAction, finalizeEstimateAction, updateEstimateAction, updateEstimateLineItemAction } from "@/app/actions";
+import { addEstimateLineItemAction, createEstimateAction, deleteEstimateAction, finalizeEstimateAction, updateEstimateAction, updateEstimateLineItemAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StatusBanner } from "@/components/status-banner";
 import { getAdminEstimates } from "@/lib/content";
@@ -7,9 +7,10 @@ import { money } from "@/lib/utils";
 export default async function AdminEstimatesPage({
   searchParams,
 }: {
-  searchParams?: { success?: string; error?: string };
+  searchParams?: { success?: string; error?: string; editEstimateId?: string };
 }) {
   const estimates = await getAdminEstimates();
+  const editingEstimate = estimates.find((estimate) => estimate.id === searchParams?.editEstimateId) ?? null;
 
   return (
     <DashboardShell
@@ -77,34 +78,43 @@ export default async function AdminEstimatesPage({
 
       <form action={updateEstimateAction} className="mt-6 rounded-3xl bg-slate-50 p-6">
         <input type="hidden" name="redirectTo" value="/dashboard/admin/estimates" />
-        <h2 className="text-lg font-semibold">Adjust an estimate</h2>
+        <h2 className="text-lg font-semibold">{editingEstimate ? "Edit estimate" : "Adjust an estimate"}</h2>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <label className="grid gap-2 text-sm font-medium text-slate-700">
             Estimate ID
-            <input name="estimateId" required className="rounded-2xl border border-slate-300 px-4 py-3" />
+            <input name="estimateId" required defaultValue={editingEstimate?.id ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label className="grid gap-2 text-sm font-medium text-slate-700">
             Title
-            <input name="title" required className="rounded-2xl border border-slate-300 px-4 py-3" />
+            <input name="title" required defaultValue={editingEstimate?.title ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label className="grid gap-2 text-sm font-medium text-slate-700">
             Status
-            <select name="status" defaultValue="draft" className="rounded-2xl border border-slate-300 px-4 py-3">
+            <select name="status" defaultValue={editingEstimate?.status ?? "draft"} className="rounded-2xl border border-slate-300 px-4 py-3">
               <option value="draft">Draft</option>
               <option value="finalized">Finalized</option>
             </select>
           </label>
           <label className="flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700">
-            <input name="visibleToClient" type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+            <input name="visibleToClient" type="checkbox" defaultChecked={editingEstimate?.visibleToClient ?? false} className="h-4 w-4 rounded border-slate-300" />
             Visible to client
           </label>
         </div>
         <label className="mt-4 grid gap-2 text-sm font-medium text-slate-700">
           Notes
-          <textarea name="notes" rows={4} className="rounded-2xl border border-slate-300 px-4 py-3" />
+          <textarea name="notes" rows={4} defaultValue={editingEstimate?.notes ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
-        <button className="mt-4 rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">Save estimate changes</button>
+        <button className="mt-4 rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">{editingEstimate ? "Update estimate" : "Save estimate changes"}</button>
       </form>
+
+      {editingEstimate ? (
+        <form action={deleteEstimateAction} className="mt-4 rounded-3xl border border-red-200 bg-red-50 p-6">
+          <input type="hidden" name="redirectTo" value="/dashboard/admin/estimates" />
+          <input type="hidden" name="estimateId" value={editingEstimate.id} />
+          <p className="text-sm text-red-900">Delete this estimate from the CRM.</p>
+          <button className="mt-4 rounded-full border border-red-300 px-5 py-3 font-semibold text-red-700">Delete estimate</button>
+        </form>
+      ) : null}
 
       <form action={updateEstimateLineItemAction} className="mt-6 rounded-3xl bg-sky-50 p-6">
         <input type="hidden" name="redirectTo" value="/dashboard/admin/estimates" />
@@ -155,6 +165,14 @@ export default async function AdminEstimatesPage({
               </div>
               <div className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-500">
                 {estimate.status} • {estimate.visibleToClient ? "Visible to client" : "Internal draft"}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <a href={`/dashboard/admin/estimates?editEstimateId=${estimate.id}`} className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">Edit</a>
+                <form action={deleteEstimateAction}>
+                  <input type="hidden" name="redirectTo" value="/dashboard/admin/estimates" />
+                  <input type="hidden" name="estimateId" value={estimate.id} />
+                  <button className="rounded-full border border-red-200 px-4 py-2 text-xs font-semibold text-red-700">Delete</button>
+                </form>
               </div>
               {estimate.lineItems.length > 0 ? (
                <div className="mt-4 border-t border-slate-200 pt-4">

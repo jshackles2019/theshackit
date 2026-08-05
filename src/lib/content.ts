@@ -35,6 +35,7 @@ export type PublicContactContent = {
 
 export type AdminCatalogContent = {
   services: Array<{
+    id: string;
     name: string;
     description: string | null;
     pricingModel: string | null;
@@ -44,6 +45,7 @@ export type AdminCatalogContent = {
     active: boolean;
   }>;
   hardware: Array<{
+    id: string;
     name: string;
     description: string | null;
     internalCost: number | null;
@@ -67,6 +69,7 @@ export type AdminContact = {
   source: string | null;
   pipelineStage: string;
   status: string;
+  active: boolean;
   notes: string | null;
   agreement: {
     billingFrequency: string | null;
@@ -110,6 +113,7 @@ export type AdminEstimate = {
   contactEmail: string | null;
   status: string;
   visibleToClient: boolean;
+  notes: string | null;
   subtotalSell: number;
   subtotalCost: number;
   totalSell: number;
@@ -470,8 +474,8 @@ export async function getAdminCatalogContent(): Promise<AdminCatalogContent> {
   try {
     const supabase = await createSupabaseServerClient();
     const [{ data: servicesData, error: servicesError }, { data: hardwareData, error: hardwareError }] = await Promise.all([
-      supabase.from("services").select("name, description, pricing_model, base_price, internal_cost, markup_pct, active").order("name"),
-      supabase.from("hardware_catalog").select("name, description, internal_cost, sell_price, markup_pct, active").order("name"),
+      supabase.from("services").select("id, name, description, pricing_model, base_price, internal_cost, markup_pct, active").order("name"),
+      supabase.from("hardware_catalog").select("id, name, description, internal_cost, sell_price, markup_pct, active").order("name"),
     ]);
 
     if (servicesError || hardwareError) {
@@ -480,6 +484,7 @@ export async function getAdminCatalogContent(): Promise<AdminCatalogContent> {
 
     return {
       services: (servicesData ?? []).map((service) => ({
+        id: service.id,
         name: service.name,
         description: service.description,
         pricingModel: service.pricing_model,
@@ -489,6 +494,7 @@ export async function getAdminCatalogContent(): Promise<AdminCatalogContent> {
         active: service.active,
       })),
       hardware: (hardwareData ?? []).map((item) => ({
+        id: item.id,
         name: item.name,
         description: item.description,
         internalCost: item.internal_cost,
@@ -543,7 +549,7 @@ export async function getAdminCrmContacts(): Promise<AdminContact[]> {
     const supabase = await createSupabaseServerClient();
     const { data: contactsData, error: contactsError } = await supabase
       .from("crm_contacts")
-      .select("id, full_name, email, company_name, source, pipeline_stage, status, notes")
+      .select("id, full_name, email, company_name, source, pipeline_stage, status, active, notes")
       .order("updated_at", { ascending: false });
 
     if (contactsError || !contactsData) {
@@ -599,6 +605,7 @@ export async function getAdminCrmContacts(): Promise<AdminContact[]> {
       source: contact.source,
       pipelineStage: contact.pipeline_stage,
       status: contact.status,
+      active: contact.active,
       notes: contact.notes,
       agreement: agreementMap.get(contact.id) ?? null,
       activityCount: activityCounts.get(contact.id) ?? 0,
@@ -700,6 +707,7 @@ export async function getAdminEstimates(): Promise<AdminEstimate[]> {
       contactEmail: estimate.contact_id ? contactMap.get(estimate.contact_id)?.email ?? null : null,
       status: estimate.status,
       visibleToClient: estimate.visible_to_client,
+      notes: estimate.notes,
       subtotalSell: Number(estimate.subtotal_sell ?? 0),
       subtotalCost: Number(estimate.subtotal_cost ?? 0),
       totalSell: Number(estimate.total_sell ?? 0),
@@ -943,7 +951,7 @@ export async function getClientContactById(clientId: string): Promise<AdminConta
     const supabase = await createSupabaseServerClient();
     const { data: contactData, error: contactError } = await supabase
       .from("crm_contacts")
-      .select("id, full_name, email, company_name, source, pipeline_stage, status, notes")
+      .select("id, full_name, email, company_name, source, pipeline_stage, status, active, notes")
       .eq("id", clientId)
       .single();
 
@@ -975,6 +983,7 @@ export async function getClientContactById(clientId: string): Promise<AdminConta
       source: contactData.source,
       pipelineStage: contactData.pipeline_stage,
       status: contactData.status,
+      active: contactData.active,
       notes: contactData.notes,
       agreement: agreementData
         ? {

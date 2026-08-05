@@ -1,4 +1,4 @@
-import { saveHardwareAction, saveServiceAction, saveSiteSettingAction } from "@/app/actions";
+import { deleteHardwareAction, deleteServiceAction, saveHardwareAction, saveServiceAction, saveSiteSettingAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StatusBanner } from "@/components/status-banner";
 import { getAdminCatalogContent } from "@/lib/content";
@@ -6,9 +6,11 @@ import { getAdminCatalogContent } from "@/lib/content";
 export default async function AdminServicesPage({
   searchParams,
 }: {
-  searchParams?: { success?: string; error?: string };
+  searchParams?: { success?: string; error?: string; editServiceId?: string; editHardwareId?: string };
 }) {
   const catalog = await getAdminCatalogContent();
+  const editingService = catalog.services.find((service) => service.id === searchParams?.editServiceId) ?? null;
+  const editingHardware = catalog.hardware.find((item) => item.id === searchParams?.editHardwareId) ?? null;
 
   return (
     <DashboardShell
@@ -18,58 +20,76 @@ export default async function AdminServicesPage({
       <StatusBanner success={searchParams?.success} error={searchParams?.error} />
       <div className="grid gap-6 lg:grid-cols-2">
         <form action={saveServiceAction} className="rounded-3xl bg-white p-6 text-slate-950 shadow-sm">
-          <h2 className="text-lg font-semibold">Add or update a service</h2>
+          <h2 className="text-lg font-semibold">{editingService ? "Edit service" : "Add or update a service"}</h2>
           <div className="mt-4 grid gap-4">
             <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+            {editingService ? <input type="hidden" name="serviceId" value={editingService.id} /> : null}
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Name
-              <input name="name" required className="rounded-2xl border border-slate-300 px-4 py-3" />
+              <input name="name" required defaultValue={editingService?.name ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Description
-              <textarea name="description" rows={4} className="rounded-2xl border border-slate-300 px-4 py-3" />
+              <textarea name="description" rows={4} defaultValue={editingService?.description ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Pricing model
-              <input name="pricingModel" className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Fixed / Hourly / Tiered" />
+              <input name="pricingModel" defaultValue={editingService?.pricingModel ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Fixed / Hourly / Tiered" />
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 Base price
-                <input name="basePrice" type="number" step="0.01" className="rounded-2xl border border-slate-300 px-4 py-3" />
+                <input name="basePrice" type="number" step="0.01" defaultValue={editingService?.basePrice ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 Internal cost
-                <input name="internalCost" type="number" step="0.01" className="rounded-2xl border border-slate-300 px-4 py-3" />
+                <input name="internalCost" type="number" step="0.01" defaultValue={editingService?.internalCost ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
             </div>
-            <button className="rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">Save service</button>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Status
+              <select name="active" defaultValue={editingService ? (editingService.active ? "active" : "inactive") : "active"} className="rounded-2xl border border-slate-300 px-4 py-3">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <button className="rounded-full bg-slate-950 px-5 py-3 font-semibold text-white">{editingService ? "Update service" : "Save service"}</button>
+            {editingService ? <p className="text-xs text-slate-500">Delete from the service list below.</p> : null}
           </div>
         </form>
 
         <form action={saveHardwareAction} className="rounded-3xl bg-sky-50 p-6 text-slate-950">
-          <h2 className="text-lg font-semibold">Add or update hardware</h2>
+          <h2 className="text-lg font-semibold">{editingHardware ? "Edit hardware" : "Add or update hardware"}</h2>
           <div className="mt-4 grid gap-4">
             <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+            {editingHardware ? <input type="hidden" name="hardwareId" value={editingHardware.id} /> : null}
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Name
-              <input name="name" required className="rounded-2xl border border-slate-300 px-4 py-3" />
+              <input name="name" required defaultValue={editingHardware?.name ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Description
-              <textarea name="description" rows={4} className="rounded-2xl border border-slate-300 px-4 py-3" />
+              <textarea name="description" rows={4} defaultValue={editingHardware?.description ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 Internal cost
-                <input name="internalCost" type="number" step="0.01" className="rounded-2xl border border-slate-300 px-4 py-3" />
+                <input name="internalCost" type="number" step="0.01" defaultValue={editingHardware?.internalCost ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 Sell price
-                <input name="sellPrice" type="number" step="0.01" className="rounded-2xl border border-slate-300 px-4 py-3" />
+                <input name="sellPrice" type="number" step="0.01" defaultValue={editingHardware?.sellPrice ?? ""} className="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
             </div>
-            <button className="rounded-full bg-sky-500 px-5 py-3 font-semibold text-white">Save hardware</button>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Status
+              <select name="active" defaultValue={editingHardware ? (editingHardware.active ? "active" : "inactive") : "active"} className="rounded-2xl border border-slate-300 px-4 py-3">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <button className="rounded-full bg-sky-500 px-5 py-3 font-semibold text-white">{editingHardware ? "Update hardware" : "Save hardware"}</button>
+            {editingHardware ? <p className="text-xs text-slate-500">Delete from the hardware list below.</p> : null}
           </div>
         </form>
       </div>
@@ -79,10 +99,19 @@ export default async function AdminServicesPage({
           <h2 className="text-lg font-semibold">Saved services</h2>
           <ul className="mt-4 space-y-3 text-sm text-slate-600">
             {catalog.services.length > 0 ? catalog.services.map((service) => (
-              <li key={service.name} className="rounded-2xl bg-slate-50 p-4">
+              <li key={service.id} className="rounded-2xl bg-slate-50 p-4">
                 <div className="font-semibold text-slate-950">{service.name}</div>
                 <div>{service.description}</div>
                 {service.pricingModel ? <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">{service.pricingModel}</div> : null}
+                <div className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-500">{service.active ? "Active" : "Inactive"}</div>
+                <div className="mt-3 flex gap-2">
+                  <a href={`/dashboard/admin/services?editServiceId=${service.id}`} className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">Edit</a>
+                  <form action={deleteServiceAction}>
+                    <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+                    <input type="hidden" name="serviceId" value={service.id} />
+                    <button className="rounded-full border border-red-200 px-4 py-2 text-xs font-semibold text-red-700">Delete</button>
+                  </form>
+                </div>
               </li>
             )) : <li className="rounded-2xl bg-slate-50 p-4">No services saved yet.</li>}
           </ul>
@@ -91,9 +120,18 @@ export default async function AdminServicesPage({
           <h2 className="text-lg font-semibold">Hardware catalog preview</h2>
           <ul className="mt-4 space-y-3 text-sm text-slate-600">
             {catalog.hardware.length > 0 ? catalog.hardware.map((item) => (
-              <li key={item.name} className="rounded-2xl bg-slate-50 p-4">
+              <li key={item.id} className="rounded-2xl bg-slate-50 p-4">
                 <div className="font-semibold text-slate-950">{item.name}</div>
                 <div>{item.description}</div>
+                <div className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-500">{item.active ? "Active" : "Inactive"}</div>
+                <div className="mt-3 flex gap-2">
+                  <a href={`/dashboard/admin/services?editHardwareId=${item.id}`} className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">Edit</a>
+                  <form action={deleteHardwareAction}>
+                    <input type="hidden" name="redirectTo" value="/dashboard/admin/services" />
+                    <input type="hidden" name="hardwareId" value={item.id} />
+                    <button className="rounded-full border border-red-200 px-4 py-2 text-xs font-semibold text-red-700">Delete</button>
+                  </form>
+                </div>
               </li>
             )) : <li className="rounded-2xl bg-slate-50 p-4">No hardware saved yet.</li>}
           </ul>
